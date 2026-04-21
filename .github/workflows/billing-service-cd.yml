@@ -1,11 +1,9 @@
 name: billing-service CD
 
 on:
-  workflow_dispatch:
-
-concurrency:
-  group: cd-values-prod
-  cancel-in-progress: false
+  push:
+    branches: [test, main]
+    paths: [billing-service/**]
 
 jobs:
   deploy:
@@ -16,42 +14,16 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: get ECR URL
-        id: ecr
+      - name: Set environment
+        id: vars
         run: |
-          ECR_URL=$(aws ecr describe-repositories --repository-names billing-service \
-            --query 'repositories[0].repositoryUri' --output text)
-          echo "url=$ECR_URL" >> $GITHUB_OUTPUT
-
-      - uses: aws-actions/amazon-ecr-login@v2
-
-      - name: write prod credentials file
-        run: |
-          cat > /tmp/application-cred.properties <<EOF
-          spring.datasource.url=jdbc:postgresql://${{ secrets.PROD_BILLING_DB_HOST }}:5432/billing_db
-          spring.datasource.username=${{ secrets.PROD_BILLING_DB_USER }}
-          spring.datasource.password=${{ secrets.PROD_BILLING_DB_PASSWORD }}
-          spring.data.redis.host=${{ secrets.PROD_REDIS_HOST }}
-          stripe.api.key=${{ secrets.PROD_STRIPE_API_KEY }}
-          spring.kafka.bootstrap-servers=${{ secrets.PROD_KAFKA_BROKER }}
-          spring.kafka.consumer.properties.schema.registry.url=${{ secrets.PROD_SCHEMA_REGISTRY_URL }}
-          EOF
-
-      - name: build & push image
-        uses: docker/build-push-action@v6
-        with:
-          context: billing-service
-          push: true
-          tags: ${{ steps.ecr.outputs.url }}:${{ github.sha }}
-          secrets: |
-            cred_props=/tmp/application-cred.properties
+          if [[ "${GITHUB_REF##*/}" == "test" ]]; then
+            echo "file=values-test.yaml" >> $GITHUB_OUTPUT
+            echo "env=test" >> $GITHUB_OUTPUT
+          else
+            echo "file=values-prod.yaml" >> $GITHUB_OUTPUT
+            echo "env=prod" >> $GITHUB_OUTPUT
+          fi
 
       - name: update ArgoCD values-prod.yaml
         env:
