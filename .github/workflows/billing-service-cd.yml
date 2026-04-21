@@ -1,0 +1,77 @@
+name: billing-service CD
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: cd-values-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: get ECR URL
+        id: ecr
+        run: |
+          ECR_URL=$(aws ecr describe-repositories --repository-names billing-service \
+            --query 'repositories[0].repositoryUri' --output text)
+          echo "url=$ECR_URL" >> $GITHUB_OUTPUT
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: write prod credentials file
+        run: |
+          cat > /tmp/application-cred.properties <<EOF
+          spring.datasource.url=jdbc:postgresql://${{ secrets.PROD_BILLING_DB_HOST }}:5432/billing_db
+          spring.datasource.username=${{ secrets.PROD_BILLING_DB_USER }}
+          spring.datasource.password=${{ secrets.PROD_BILLING_DB_PASSWORD }}
+          spring.data.redis.host=${{ secrets.PROD_REDIS_HOST }}
+          stripe.api.key=${{ secrets.PROD_STRIPE_API_KEY }}
+          spring.kafka.bootstrap-servers=${{ secrets.PROD_KAFKA_BROKER }}
+          spring.kafka.consumer.properties.schema.registry.url=${{ secrets.PROD_SCHEMA_REGISTRY_URL }}
+          EOF
+
+      - name: build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: billing-service
+          push: true
+          tags: ${{ steps.ecr.outputs.url }}:${{ github.sha }}
+          secrets: |
+            cred_props=/tmp/application-cred.properties
+
+      - name: update ArgoCD values-prod.yaml
+        env:
+          ARGOCD_REPO_TOKEN: ${{ secrets.ARGOCD_REPO_TOKEN }}
+        run: |
+          git clone https://x-access-token:${ARGOCD_REPO_TOKEN}@github.com/huzaifa678/SAAS-Continious-Delivery.git /tmp/cd
+          cd /tmp/cd
+
+          wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+          yq -i '.billingService.image.repository = "${{ steps.ecr.outputs.url }}"' saas-chart/values-prod.yaml
+          yq -i '.billingService.image.tag        = "${{ github.sha }}"'             saas-chart/values-prod.yaml
+
+          CRED_B64=$(base64 -w0 /tmp/application-cred.properties)
+          yq -i ".billingService.credPropertiesSecret = \"$CRED_B64\"" saas-chart/values-prod.yaml
+
+          git config user.email "ci@github.com"
+          git config user.name  "GitHub Actions"
+          git add saas-chart/values-prod.yaml
+          git commit -m "cd(billing-service): update image to ${{ github.sha }}"
+          git push
