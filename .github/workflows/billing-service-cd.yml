@@ -39,9 +39,6 @@ jobs:
           yq -i '.billingService.image.repository = "${{ steps.ecr.outputs.url }}"' saas-chart/values-prod.yaml
           yq -i '.billingService.image.tag        = "${{ github.sha }}"'             saas-chart/values-prod.yaml
 
-          CRED_B64=$(base64 -w0 /tmp/application-cred.properties)
-          yq -i ".billingService.credPropertiesSecret = \"$CRED_B64\"" saas-chart/values-prod.yaml
-
           git config user.email "ci@github.com"
           git config user.name  "GitHub Actions"
           git add saas-chart/values-prod.yaml
