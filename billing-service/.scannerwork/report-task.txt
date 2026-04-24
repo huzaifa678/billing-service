@@ -1,0 +1,6 @@
+projectKey=billing-service
+serverUrl=http://localhost:9000
+serverVersion=26.4.0.121862
+dashboardUrl=http://localhost:9000/dashboard?id=billing-service
+ceTaskId=dd2b05b1-94e9-48bf-8849-9737661cb132
+ceTaskUrl=http://localhost:9000/api/ce/task?id=dd2b05b1-94e9-48bf-8849-9737661cb132
