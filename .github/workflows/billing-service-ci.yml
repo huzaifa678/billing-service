@@ -25,10 +25,21 @@ jobs:
           distribution: temurin
           cache: gradle
 
+      - name: Install SonarScanner
+        run: |
+          curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+          unzip sonar-scanner.zip
+          echo "$(pwd)/sonar-scanner-5.0.1.3006-linux/bin" >> $GITHUB_PATH
+
       - name: Run tests
         run: ./gradlew test --no-daemon
         env:
           STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
+
+      - name: Run lint & Code quality check
+        run: sonar-scanner
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
