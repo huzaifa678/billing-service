@@ -161,13 +161,12 @@ tasks.jacocoTestReport {
 }
 
 sourceSets {
-    main {
+    getByName("main") {
         java {
-            srcDirs += [
-                    "$buildDir/generated/sources/proto/main/java",
-                    "$buildDir/generated/sources/proto/main/grpc",
-                    "src/main/generated/avro"
-            ]
+            srcDir("src/main/java")
+            srcDir(layout.buildDirectory.dir("generated/sources/proto/main/java"))
+            srcDir(layout.buildDirectory.dir("generated/sources/proto/main/grpc"))
+            srcDir("src/main/generated/avro")
         }
     }
 }
