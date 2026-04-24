@@ -1,7 +1,0 @@
-organization=huzaifa678
-projectKey=huzaifa678_billing-service
-serverUrl=https://sonarcloud.io
-serverVersion=8.0.0.86098
-dashboardUrl=https://sonarcloud.io/dashboard?id=huzaifa678_billing-service
-ceTaskId=AZ3A2TWxfoIYzeJkIDV9
-ceTaskUrl=https://sonarcloud.io/api/ce/task?id=AZ3A2TWxfoIYzeJkIDV9
