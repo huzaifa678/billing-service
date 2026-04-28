@@ -89,6 +89,8 @@ dependencies {
 
 
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    testImplementation 'au.com.dius.pact.consumer:junit5:4.6.16'
 }
 
 dependencyManagement {
@@ -177,4 +179,12 @@ tasks.named('asciidoctor') {
 tasks.withType(JavaCompile).configureEach {
     dependsOn(tasks.named('generateTestAvroJava'))
     dependsOn(tasks.named('generateAvroJava'))
+}
+
+// Copy generated pact files to subscription-service so the provider can verify them.
+tasks.register('copyPacts', Copy) {
+    dependsOn tasks.test
+    from layout.buildDirectory.dir('pacts')
+    into '../../subscription-service/subscription-service/pacts'
+    include '*.json'
 }
