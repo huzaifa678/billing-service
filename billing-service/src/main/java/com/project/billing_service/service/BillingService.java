@@ -12,10 +12,11 @@ import com.project.billing_service.model.entities.InvoiceEntity;
 import com.project.billing_service.model.entities.InvoiceStatus;
 import com.project.billing_service.model.mapper.InvoiceMapper;
 import com.project.billing_service.repository.InvoiceRepository;
+import com.stripe.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import subscription.Subscription;
+import subscription.v1.Subscription;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -36,7 +37,7 @@ public class BillingService {
 
     public InvoiceEntity createInvoice(InvoiceDto dto) {
 
-        Subscription.SubscriptionResponse sub;
+        Subscription.GetSubscriptionResponse sub;
         try {
             sub = subscriptionGrpcClient
                     .getSubscription(dto.getSubscriptionId().toString());
@@ -112,7 +113,7 @@ public class BillingService {
         }
     }
 
-    public List<Subscription.SubscriptionResponse> getActiveSubscriptions(UUID userId) {
+    public List<Subscription.GetSubscriptionResponse> getActiveSubscriptions(UUID userId) {
 
         try {
             Subscription.GetUserActiveSubscriptionsResponse response =

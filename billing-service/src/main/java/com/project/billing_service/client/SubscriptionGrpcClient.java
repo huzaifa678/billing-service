@@ -5,8 +5,8 @@ import io.github.resilience4j.retry.annotation.Retry;
 import io.grpc.ManagedChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import subscription.Subscription;
-import subscription.SubscriptionServiceGrpc;
+import subscription.v1.Subscription;
+import subscription.v1.SubscriptionServiceGrpc;
 
 import javax.naming.ServiceUnavailableException;
 
@@ -22,7 +22,7 @@ public class SubscriptionGrpcClient {
 
     @Retry(name = "subscriptionGrpc", fallbackMethod = "subscriptionFallback")
     @CircuitBreaker(name = "subscriptionGrpc", fallbackMethod = "subscriptionFallback")
-    public Subscription.SubscriptionResponse getSubscription(String subscriptionId) {
+    public Subscription.GetSubscriptionResponse getSubscription(String subscriptionId) {
         Subscription.GetSubscriptionRequest request =
                 Subscription.GetSubscriptionRequest.newBuilder()
                         .setSubscriptionId(subscriptionId)
@@ -42,7 +42,7 @@ public class SubscriptionGrpcClient {
         return stub.getUserActiveSubscriptions(request);
     }
 
-    private Subscription.SubscriptionResponse subscriptionFallback(String id, Throwable ex) throws ServiceUnavailableException {
+    private Subscription.GetSubscriptionResponse subscriptionFallback(String id, Throwable ex) throws ServiceUnavailableException {
         log.error("Subscription service call failed for id: {}", id, ex);
         throw new ServiceUnavailableException(
                 "Subscription service unavailable for " + id

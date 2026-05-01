@@ -2,12 +2,10 @@ plugins {
     id 'java'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'org.springframework.boot' version '4.0.2'
-    id 'com.google.protobuf' version '0.9.5'
     id 'org.asciidoctor.jvm.convert' version '4.0.5'
     id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1'
     id "jacoco"
 }
-
 
 group = 'com.project'
 version = '0.0.1-SNAPSHOT'
@@ -28,7 +26,15 @@ configurations {
 repositories {
     mavenCentral()
     maven {
-        url =  "https://packages.confluent.io/maven/"
+        url = "https://packages.confluent.io/maven/"
+    }
+    maven {
+        name = "buf"
+        url = "https://buf.build/gen/maven"
+        credentials(HttpHeaderCredentials)
+        authentication {
+            header(HttpHeaderAuthentication)
+        }
     }
 }
 
@@ -38,41 +44,49 @@ ext {
     set('springCloudVersion', "2025.1.0")
     set('confluentVersion', "7.6.1")
     set('avroVersion', "1.11.3")
-    set('springBootVersion', "4.0.2")
 }
 
 dependencies {
+
+    implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
     implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    implementation "com.bucket4j:bucket4j_jdk17-core:8.15.0"
-    implementation "com.bucket4j:bucket4j_jdk17-lettuce:8.15.0"
     runtimeOnly 'org.postgresql:postgresql'
-    implementation 'com.stripe:stripe-java:31.3.0'
+
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
     implementation "org.apache.avro:avro:${avroVersion}"
     implementation "io.confluent:kafka-avro-serializer:${confluentVersion}"
+
     implementation 'org.springframework.grpc:spring-grpc-server-web-spring-boot-starter'
     implementation 'io.grpc:grpc-netty-shaded'
     implementation 'io.grpc:grpc-stub'
     implementation 'io.grpc:grpc-protobuf'
     implementation 'javax.annotation:javax.annotation-api:1.3.2'
+
     implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
     implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.21.0-alpha'
+    implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+
+    implementation 'com.stripe:stripe-java:31.3.0'
+
+    implementation 'build.buf.gen:protocol-buffer-org_proto_protocolbuffers_java:34.1.0.1.20260428122725.252ac983a046'
+    //implementation 'build.buf.gen:protocol-buffer-org_proto_grpc_java:34.1.0.1.20260428122725.252ac983a046'
+
+    implementation "com.bucket4j:bucket4j_jdk17-core:8.15.0"
+    implementation "com.bucket4j:bucket4j_jdk17-lettuce:8.15.0"
 
     implementation 'org.mapstruct:mapstruct:1.5.5.Final'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
 
-    implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
-    implementation 'org.springframework.boot:spring-boot-starter'
-    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jdbc-test'
@@ -80,46 +94,21 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.springframework.boot:spring-boot-starter-kafka-test'
     testImplementation 'org.springframework.grpc:spring-grpc-test'
+
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-kafka'
     testImplementation 'org.testcontainers:testcontainers-postgresql'
     testImplementation 'org.mockito:mockito-core:5.11.0'
     testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
-    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-
+    testImplementation 'au.com.dius.pact.consumer:junit5:4.6.16'
 
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-    testImplementation 'au.com.dius.pact.consumer:junit5:4.6.16'
 }
 
 dependencyManagement {
     imports {
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
         mavenBom "org.springframework.grpc:spring-grpc-dependencies:${springGrpcVersion}"
-    }
-}
-
-protobuf {
-    protoc {
-        artifact = "com.google.protobuf:protoc:3.25.3"
-    }
-    plugins {
-        grpc {
-            artifact = "io.grpc:protoc-gen-grpc-java:1.58.0"
-        }
-    }
-    generateProtoTasks {
-        all().each { task ->
-
-            task.builtins {
-                java {}
-            }
-
-            task.plugins {
-                grpc {}
-            }
-        }
     }
 }
 
@@ -133,13 +122,29 @@ tasks.withType(com.github.davidmc24.gradle.plugin.avro.GenerateAvroJavaTask).con
     outputDir = file("$projectDir/src/main/generated/avro")
 }
 
-jacoco {
-    toolVersion = "0.8.12"
+sourceSets {
+    main {
+        java {
+            srcDir("src/main/java")
+            srcDir("src/main/generated/avro")
+            srcDir("build/generated/buf")
+        }
+    }
+}
+
+
+tasks.named("compileJava") {
+    dependsOn("generateAvroJava")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    dependsOn(tasks.named('generateTestAvroJava'))
 }
 
 tasks.test {
     useJUnitPlatform()
     finalizedBy tasks.jacocoTestReport
+    outputs.dir(snippetsDir)
 }
 
 tasks.jacocoTestReport {
@@ -150,38 +155,11 @@ tasks.jacocoTestReport {
     }
 }
 
-sourceSets {
-    getByName("main") {
-        java {
-            srcDir("src/main/java")
-            srcDir(layout.buildDirectory.dir("generated/sources/proto/main/java"))
-            srcDir(layout.buildDirectory.dir("generated/sources/proto/main/grpc"))
-            srcDir("src/main/generated/avro")
-        }
-    }
-}
-
-
-tasks.named("compileJava") {
-    dependsOn(tasks.withType(com.google.protobuf.gradle.GenerateProtoTask))
-}
-
-tasks.named('test') {
-    outputs.dir snippetsDir
-    useJUnitPlatform()
-}
-
 tasks.named('asciidoctor') {
-    inputs.dir snippetsDir
+    inputs.dir(snippetsDir)
     dependsOn test
 }
 
-tasks.withType(JavaCompile).configureEach {
-    dependsOn(tasks.named('generateTestAvroJava'))
-    dependsOn(tasks.named('generateAvroJava'))
-}
-
-// Copy generated pact files to subscription-service so the provider can verify them.
 tasks.register('copyPacts', Copy) {
     dependsOn tasks.test
     from layout.buildDirectory.dir('pacts')

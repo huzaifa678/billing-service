@@ -8,11 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import subscription.Subscription;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
+import subscription.v1.Subscription;
 
 @RestController
 @RequestMapping("/api/billing")
@@ -43,10 +42,10 @@ public class BillingController {
     }
 
     @GetMapping("/active")
-    public ResponseEntity<List<Subscription.SubscriptionResponse>> getActiveSubscriptions(
+    public ResponseEntity<List<Subscription.GetSubscriptionResponse>> getActiveSubscriptions(
             @RequestParam UUID userId
     ) {
-        List<Subscription.SubscriptionResponse> subscriptions =
+        List<Subscription.GetSubscriptionResponse> subscriptions =
                 billingService.getActiveSubscriptions(userId);
         return ResponseEntity.ok(subscriptions);
     }
