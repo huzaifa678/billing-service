@@ -73,14 +73,14 @@ class SubscriptionGrpcClientPactTest {
         var stub = SubscriptionServiceGrpc.newBlockingStub(channel);
 
         var request = Subscription.GetSubscriptionRequest.newBuilder()
-                .setSubscriptionId("sub-123")
+                .setSubscriptionId("550e8400-e29b-41d4-a716-446655440000")
                 .build();
 
         var response = stub.getSubscription(request);
 
         assertNotNull(response);
-        assertEquals("sub-123", response.getId());
-        assertEquals("user-456", response.getUserId());
+        assertEquals("550e8400-e29b-41d4-a716-446655440000", response.getId());
+        assertEquals("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc", response.getUserId());
         assertEquals("plan-basic", response.getPlanId());
         assertEquals("ACTIVE", response.getStatus());
         assertFalse(response.getCancelAtPeriodEnd());
@@ -93,7 +93,7 @@ class SubscriptionGrpcClientPactTest {
         var stub = SubscriptionServiceGrpc.newBlockingStub(channel);
 
         var request = Subscription.GetUserActiveSubscriptionsRequest.newBuilder()
-                .setUserId("user-456")
+                .setUserId("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc")
                 .build();
 
         var response = stub.getUserActiveSubscriptions(request);
@@ -101,7 +101,7 @@ class SubscriptionGrpcClientPactTest {
         assertNotNull(response);
         assertFalse(response.getSubscriptionsList().isEmpty());
         assertEquals("ACTIVE", response.getSubscriptions(0).getStatus());
-        assertEquals("user-456", response.getSubscriptions(0).getUserId());
+        assertEquals("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc", response.getSubscriptions(0).getUserId());
     }
 
     // ── Pact HTTP interaction (used to generate the pact file) ───────────────
@@ -111,24 +111,24 @@ class SubscriptionGrpcClientPactTest {
     @Pact(consumer = CONSUMER, provider = PROVIDER)
     RequestResponsePact getSubscriptionPact(PactDslWithProvider builder) {
         return builder
-                .given("subscription sub-123 exists and is ACTIVE")
-                .uponReceiving("a request to get subscription sub-123")
+                .given("subscription 550e8400-e29b-41d4-a716-446655440000 exists and is ACTIVE")
+                .uponReceiving("a request to get subscription 550e8400-e29b-41d4-a716-446655440000")
                     .path("/subscription.SubscriptionService/GetSubscription")
                     .method("POST")
                     .headers(Map.of("Content-Type", "application/grpc"))
                 .willRespondWith()
                     .status(200)
                     .headers(Map.of("Content-Type", "application/grpc"))
-                    .body("{\"id\":\"sub-123\",\"userId\":\"user-456\",\"planId\":\"plan-basic\",\"status\":\"ACTIVE\",\"cancelAtPeriodEnd\":false}")
-                .given("user user-456 has active subscriptions")
-                .uponReceiving("a request to get active subscriptions for user user-456")
+                    .body("{\"id\":\"550e8400-e29b-41d4-a716-446655440000\",\"userId\":\"9f1c2d3e-7a8b-4c5d-9e0f-123456789abc\",\"planId\":\"plan-basic\",\"status\":\"ACTIVE\",\"cancelAtPeriodEnd\":false}")
+                .given("user 9f1c2d3e-7a8b-4c5d-9e0f-123456789abc has active subscriptions")
+                .uponReceiving("a request to get active subscriptions for user 9f1c2d3e-7a8b-4c5d-9e0f-123456789abc")
                     .path("/subscription.SubscriptionService/GetUserActiveSubscriptions")
                     .method("POST")
                     .headers(Map.of("Content-Type", "application/grpc"))
                 .willRespondWith()
                     .status(200)
                     .headers(Map.of("Content-Type", "application/grpc"))
-                    .body("{\"subscriptions\":[{\"id\":\"sub-123\",\"userId\":\"user-456\",\"planId\":\"plan-basic\",\"status\":\"ACTIVE\",\"cancelAtPeriodEnd\":false}]}")
+                    .body("{\"subscriptions\":[{\"id\":\"550e8400-e29b-41d4-a716-446655440000\",\"userId\":\"9f1c2d3e-7a8b-4c5d-9e0f-123456789abc\",\"planId\":\"plan-basic\",\"status\":\"ACTIVE\",\"cancelAtPeriodEnd\":false}]}")
                 .toPact();
     }
 
@@ -163,7 +163,7 @@ class SubscriptionGrpcClientPactTest {
             responseObserver.onNext(
                     Subscription.GetSubscriptionResponse.newBuilder()
                             .setId(request.getSubscriptionId())
-                            .setUserId("user-456")
+                            .setUserId("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc")
                             .setPlanId("plan-basic")
                             .setStatus("ACTIVE")
                             .setCancelAtPeriodEnd(false)
@@ -178,7 +178,7 @@ class SubscriptionGrpcClientPactTest {
                 StreamObserver<Subscription.GetUserActiveSubscriptionsResponse> responseObserver) {
 
             var sub = Subscription.GetSubscriptionResponse.newBuilder()
-                    .setId("sub-123")
+                    .setId("550e8400-e29b-41d4-a716-446655440000")
                     .setUserId(request.getUserId())
                     .setPlanId("plan-basic")
                     .setStatus("ACTIVE")
