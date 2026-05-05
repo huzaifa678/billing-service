@@ -16,8 +16,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import subscription.Subscription;
-import subscription.SubscriptionServiceGrpc;
+import subscription.v1.Subscription;
+import subscription.v1.SubscriptionServiceGrpc;
 
 import java.io.IOException;
 import java.util.Map;
@@ -158,10 +158,10 @@ class SubscriptionGrpcClientPactTest {
         @Override
         public void getSubscription(
                 Subscription.GetSubscriptionRequest request,
-                StreamObserver<Subscription.SubscriptionResponse> responseObserver) {
+                StreamObserver<Subscription.GetSubscriptionResponse> responseObserver) {
 
             responseObserver.onNext(
-                    Subscription.SubscriptionResponse.newBuilder()
+                    Subscription.GetSubscriptionResponse.newBuilder()
                             .setId(request.getSubscriptionId())
                             .setUserId("user-456")
                             .setPlanId("plan-basic")
@@ -177,7 +177,7 @@ class SubscriptionGrpcClientPactTest {
                 Subscription.GetUserActiveSubscriptionsRequest request,
                 StreamObserver<Subscription.GetUserActiveSubscriptionsResponse> responseObserver) {
 
-            var sub = Subscription.SubscriptionResponse.newBuilder()
+            var sub = Subscription.GetSubscriptionResponse.newBuilder()
                     .setId("sub-123")
                     .setUserId(request.getUserId())
                     .setPlanId("plan-basic")
