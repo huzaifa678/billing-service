@@ -72,7 +72,7 @@ dependencies {
     implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.21.0-alpha'
     implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
 
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 
     implementation 'com.stripe:stripe-java:31.3.0'
 
