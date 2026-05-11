@@ -50,7 +50,7 @@ graph TD
 | Cache / Rate Limiting | Redis + Bucket4j (Lettuce) |
 | Messaging | Apache Kafka (Avro + Confluent Schema Registry) |
 | Payment | Stripe Java SDK |
-| Internal RPC | gRPC (Spring gRPC) |
+| Internal RPC | gRPC (Buf Registry) |
 | Resilience | Resilience4j (circuit breaker + retry) |
 | API Docs | SpringDoc OpenAPI / Swagger UI |
 | Observability | OpenTelemetry (Spring Boot starter), Actuator |
