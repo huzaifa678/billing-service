@@ -82,8 +82,8 @@ dependencies {
     implementation "com.bucket4j:bucket4j_jdk17-core:8.18.0"
     implementation "com.bucket4j:bucket4j_jdk17-lettuce:8.18.0"
 
-    implementation 'org.mapstruct:mapstruct:1.5.5.Final'
-    annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
+    implementation 'org.mapstruct:mapstruct:1.6.3'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
