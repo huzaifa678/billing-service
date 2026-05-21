@@ -79,8 +79,8 @@ dependencies {
     implementation 'build.buf.gen:protocol-buffer-org_proto_protocolbuffers_java:34.1.0.1.20260428122725.252ac983a046'
     //implementation 'build.buf.gen:protocol-buffer-org_proto_grpc_java:34.1.0.1.20260428122725.252ac983a046'
 
-    implementation "com.bucket4j:bucket4j_jdk17-core:8.18.0"
-    implementation "com.bucket4j:bucket4j_jdk17-lettuce:8.18.0"
+    implementation "com.bucket4j:bucket4j_jdk17-core:8.19.0"
+    implementation "com.bucket4j:bucket4j_jdk17-lettuce:8.19.0"
 
     implementation 'org.mapstruct:mapstruct:1.6.3'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
