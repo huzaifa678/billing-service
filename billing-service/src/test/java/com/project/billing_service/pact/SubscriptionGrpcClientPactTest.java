@@ -1,196 +1,151 @@
 package com.project.billing_service.pact;
 
 import au.com.dius.pact.consumer.MockServer;
-import au.com.dius.pact.consumer.dsl.PactDslWithProvider;
+import au.com.dius.pact.consumer.dsl.PactBuilder;
 import au.com.dius.pact.consumer.junit5.PactConsumerTestExt;
 import au.com.dius.pact.consumer.junit5.PactTestFor;
+import au.com.dius.pact.consumer.junit.MockServerConfig;
+import au.com.dius.pact.consumer.model.MockServerImplementation;
 import au.com.dius.pact.core.model.PactSpecVersion;
-import au.com.dius.pact.core.model.RequestResponsePact;
+import au.com.dius.pact.core.model.V4Pact;
 import au.com.dius.pact.core.model.annotations.Pact;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
-import io.grpc.stub.StreamObserver;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import subscription.v1.Subscription;
-import subscription.v1.SubscriptionServiceGrpc;
+import com.project.subscription.v1.GetSubscriptionRequest;
+import com.project.subscription.v1.GetSubscriptionResponse;
+import com.project.subscription.v1.GetUserActiveSubscriptionsRequest;
+import com.project.subscription.v1.GetUserActiveSubscriptionsResponse;
+import com.project.subscription.v1.SubscriptionServiceGrpc;
 
-import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Pact v3 consumer contract test for billing-service → subscription-service gRPC.
- *
- * Strategy: spin up a real in-process gRPC mock server that returns the agreed
- * response shapes, then write the pact JSON to disk so the provider can verify it.
- *
- * The pact file is written to build/pacts/ and can be shared with the provider
- * (subscription-service) via a Pact Broker or the local filesystem.
- */
 @ExtendWith(PactConsumerTestExt.class)
-@PactTestFor(providerName = "subscription-service", pactVersion = PactSpecVersion.V3)
+@PactTestFor(providerName = "subscription-service", pactVersion = PactSpecVersion.V4)
+@MockServerConfig(
+        implementation = MockServerImplementation.Plugin,
+        registryEntry = "protobuf/transport/grpc"
+)
 class SubscriptionGrpcClientPactTest {
 
-    private static final String CONSUMER = "billing-service";
-    private static final String PROVIDER = "subscription-service";
+    private static final String PROTO_PATH =
+            Paths.get("src/test/resources/proto/subscription/v1/subscription.proto")
+                    .toAbsolutePath().toString();
 
-    // We use a lightweight in-process gRPC server as the mock.
-    // The pact JSON is generated manually and written to build/pacts/.
-    private Server mockGrpcServer;
-    private ManagedChannel channel;
-    private int grpcPort;
+    private static final String PROTO_INCLUDE_DIR =
+            Paths.get("src/test/resources/proto").toAbsolutePath().toString();
 
-    @BeforeEach
-    void startMockGrpcServer() throws IOException {
-        grpcPort = findFreePort();
-        mockGrpcServer = ServerBuilder.forPort(grpcPort)
-                .addService(new MockSubscriptionService())
-                .build()
-                .start();
-
-        channel = ManagedChannelBuilder.forAddress("localhost", grpcPort)
-                .usePlaintext()
-                .build();
-    }
-
-    @AfterEach
-    void stopMockGrpcServer() throws InterruptedException {
-        channel.shutdownNow();
-        mockGrpcServer.shutdownNow();
-        mockGrpcServer.awaitTermination();
-    }
-
-    // ── GetSubscription ──────────────────────────────────────────────────────
-
-    @Test
-    void getSubscription_returnsActiveSubscription() {
-        var stub = SubscriptionServiceGrpc.newBlockingStub(channel);
-
-        var request = Subscription.GetSubscriptionRequest.newBuilder()
-                .setSubscriptionId("550e8400-e29b-41d4-a716-446655440000")
-                .build();
-
-        var response = stub.getSubscription(request);
-
-        assertNotNull(response);
-        assertEquals("550e8400-e29b-41d4-a716-446655440000", response.getId());
-        assertEquals("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc", response.getUserId());
-        assertEquals("plan-basic", response.getPlanId());
-        assertEquals("ACTIVE", response.getStatus());
-        assertFalse(response.getCancelAtPeriodEnd());
-    }
-
-    // ── GetUserActiveSubscriptions ───────────────────────────────────────────
-
-    @Test
-    void getUserActiveSubscriptions_returnsSubscriptionList() {
-        var stub = SubscriptionServiceGrpc.newBlockingStub(channel);
-
-        var request = Subscription.GetUserActiveSubscriptionsRequest.newBuilder()
-                .setUserId("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc")
-                .build();
-
-        var response = stub.getUserActiveSubscriptions(request);
-
-        assertNotNull(response);
-        assertFalse(response.getSubscriptionsList().isEmpty());
-        assertEquals("ACTIVE", response.getSubscriptions(0).getStatus());
-        assertEquals("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc", response.getSubscriptions(0).getUserId());
-    }
-
-    // ── Pact HTTP interaction (used to generate the pact file) ───────────────
-    // We also define a minimal HTTP pact so the pact file is written to disk.
-    // The provider verifier will use the pact file path, not the HTTP mock.
-
-    @Pact(consumer = CONSUMER, provider = PROVIDER)
-    RequestResponsePact getSubscriptionPact(PactDslWithProvider builder) {
+    @Pact(consumer = "billing-service")
+    V4Pact getSubscriptionPact(PactBuilder builder) {
         return builder
+                .usingPlugin("protobuf")
                 .given("subscription 550e8400-e29b-41d4-a716-446655440000 exists and is ACTIVE")
-                .uponReceiving("a request to get subscription 550e8400-e29b-41d4-a716-446655440000")
-                    .path("/subscription.SubscriptionService/GetSubscription")
-                    .method("POST")
-                    .headers(Map.of("Content-Type", "application/grpc"))
-                .willRespondWith()
-                    .status(200)
-                    .headers(Map.of("Content-Type", "application/grpc"))
-                    .body("{\"id\":\"550e8400-e29b-41d4-a716-446655440000\",\"userId\":\"9f1c2d3e-7a8b-4c5d-9e0f-123456789abc\",\"planId\":\"plan-basic\",\"status\":\"ACTIVE\",\"cancelAtPeriodEnd\":false}")
-                .given("user 9f1c2d3e-7a8b-4c5d-9e0f-123456789abc has active subscriptions")
-                .uponReceiving("a request to get active subscriptions for user 9f1c2d3e-7a8b-4c5d-9e0f-123456789abc")
-                    .path("/subscription.SubscriptionService/GetUserActiveSubscriptions")
-                    .method("POST")
-                    .headers(Map.of("Content-Type", "application/grpc"))
-                .willRespondWith()
-                    .status(200)
-                    .headers(Map.of("Content-Type", "application/grpc"))
-                    .body("{\"subscriptions\":[{\"id\":\"550e8400-e29b-41d4-a716-446655440000\",\"userId\":\"9f1c2d3e-7a8b-4c5d-9e0f-123456789abc\",\"planId\":\"plan-basic\",\"status\":\"ACTIVE\",\"cancelAtPeriodEnd\":false}]}")
+                .expectsToReceive("a GetSubscription request for an ACTIVE subscription",
+                        "core/interaction/synchronous-message")
+                .with(Map.of(
+                        "pact:proto", PROTO_PATH,
+                        "pact:proto-service", "SubscriptionService/GetSubscription",
+                        "pact:content-type", "application/grpc",
+                        "request", Map.of(
+                                "subscription_id", "matching(regex, '^[0-9a-fA-F-]{36}$', '550e8400-e29b-41d4-a716-446655440000')"
+                        ),
+                        "response", List.of(Map.of(
+                                "id", "matching(regex, '^[0-9a-fA-F-]{36}$', '550e8400-e29b-41d4-a716-446655440000')",
+                                "user_id", "matching(regex, '^[0-9a-fA-F-]{36}$', '9f1c2d3e-7a8b-4c5d-9e0f-123456789abc')",
+                                "plan_id", "matching(type, 'plan-basic')",
+                                "status", "matching(regex, '^(ACTIVE|INACTIVE|CANCELLED|PAUSED)$', 'ACTIVE')",
+                                "cancel_at_period_end", "matching(boolean, false)"
+                        ))
+                ))
+                .toPact();
+    }
+
+    @Pact(consumer = "billing-service")
+    V4Pact getUserActiveSubscriptionsPact(PactBuilder builder) {
+        return builder
+                .usingPlugin("protobuf")
+                .given("user 9f1c2d3e-7a8b-4c5d-9e0f-123456789abc has one ACTIVE subscription")
+                .expectsToReceive("a GetUserActiveSubscriptions request for a user with one active subscription",
+                        "core/interaction/synchronous-message")
+                .with(Map.of(
+                        "pact:proto", PROTO_PATH,
+                        "pact:proto-service", "SubscriptionService/GetUserActiveSubscriptions",
+                        "pact:content-type", "application/grpc",
+                        "request", Map.of(
+                                "user_id", "matching(regex, '^[0-9a-fA-F-]{36}$', '9f1c2d3e-7a8b-4c5d-9e0f-123456789abc')"
+                        ),
+                        "response", List.of(Map.of(
+                                "subscriptions", Map.of(
+                                        "pact:match", "eachValue(matching($'subscription'))",
+                                        "pact:min", 1,
+                                        "subscription", Map.of(
+                                                "id", "matching(regex, '^[0-9a-fA-F-]{36}$', '550e8400-e29b-41d4-a716-446655440000')",
+                                                "user_id", "matching(regex, '^[0-9a-fA-F-]{36}$', '9f1c2d3e-7a8b-4c5d-9e0f-123456789abc')",
+                                                "plan_id", "matching(type, 'plan-basic')",
+                                                "status", "matching(regex, '^(ACTIVE|INACTIVE|CANCELLED|PAUSED)$', 'ACTIVE')",
+                                                "cancel_at_period_end", "matching(boolean, false)"
+                                        )
+                                )
+                        ))
+                ))
                 .toPact();
     }
 
     @Test
     @PactTestFor(pactMethod = "getSubscriptionPact")
-    void pactContractIsWritten(MockServer mockServer) {
-        // This test exists solely to trigger pact file generation.
-        // The actual gRPC interaction is verified by the tests above.
-        assertNotNull(mockServer);
-    }
+    void getSubscription_returnsActiveSubscription(MockServer mockServer) {
+        ManagedChannel channel = ManagedChannelBuilder
+                .forAddress("127.0.0.1", mockServer.getPort())
+                .usePlaintext()
+                .build();
+        try {
+            var stub = SubscriptionServiceGrpc.newBlockingStub(channel);
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+            var response = stub.getSubscription(
+                    GetSubscriptionRequest.newBuilder()
+                            .setSubscriptionId("550e8400-e29b-41d4-a716-446655440000")
+                            .build()
+            );
 
-    private static int findFreePort() {
-        try (var socket = new java.net.ServerSocket(0)) {
-            return socket.getLocalPort();
-        } catch (IOException e) {
-            throw new RuntimeException("Could not find a free port", e);
+            assertNotNull(response);
+            assertEquals("550e8400-e29b-41d4-a716-446655440000", response.getId());
+            assertEquals("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc", response.getUserId());
+            assertEquals("plan-basic", response.getPlanId());
+            assertEquals("ACTIVE", response.getStatus());
+            assertFalse(response.getCancelAtPeriodEnd());
+        } finally {
+            channel.shutdownNow();
         }
     }
 
-    /**
-     * In-process gRPC mock that returns the agreed contract responses.
-     */
-    static class MockSubscriptionService extends SubscriptionServiceGrpc.SubscriptionServiceImplBase {
+    @Test
+    @PactTestFor(pactMethod = "getUserActiveSubscriptionsPact")
+    void getUserActiveSubscriptions_returnsSubscriptionList(MockServer mockServer) {
+        ManagedChannel channel = ManagedChannelBuilder
+                .forAddress("127.0.0.1", mockServer.getPort())
+                .usePlaintext()
+                .build();
+        try {
+            var stub = SubscriptionServiceGrpc.newBlockingStub(channel);
 
-        @Override
-        public void getSubscription(
-                Subscription.GetSubscriptionRequest request,
-                StreamObserver<Subscription.GetSubscriptionResponse> responseObserver) {
-
-            responseObserver.onNext(
-                    Subscription.GetSubscriptionResponse.newBuilder()
-                            .setId(request.getSubscriptionId())
+            var response = stub.getUserActiveSubscriptions(
+                    GetUserActiveSubscriptionsRequest.newBuilder()
                             .setUserId("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc")
-                            .setPlanId("plan-basic")
-                            .setStatus("ACTIVE")
-                            .setCancelAtPeriodEnd(false)
                             .build()
             );
-            responseObserver.onCompleted();
-        }
 
-        @Override
-        public void getUserActiveSubscriptions(
-                Subscription.GetUserActiveSubscriptionsRequest request,
-                StreamObserver<Subscription.GetUserActiveSubscriptionsResponse> responseObserver) {
-
-            var sub = Subscription.GetSubscriptionResponse.newBuilder()
-                    .setId("550e8400-e29b-41d4-a716-446655440000")
-                    .setUserId(request.getUserId())
-                    .setPlanId("plan-basic")
-                    .setStatus("ACTIVE")
-                    .setCancelAtPeriodEnd(false)
-                    .build();
-
-            responseObserver.onNext(
-                    Subscription.GetUserActiveSubscriptionsResponse.newBuilder()
-                            .addSubscriptions(sub)
-                            .build()
-            );
-            responseObserver.onCompleted();
+            assertNotNull(response);
+            assertFalse(response.getSubscriptionsList().isEmpty());
+            assertEquals("ACTIVE", response.getSubscriptions(0).getStatus());
+            assertEquals("9f1c2d3e-7a8b-4c5d-9e0f-123456789abc", response.getSubscriptions(0).getUserId());
+        } finally {
+            channel.shutdownNow();
         }
     }
+
 }

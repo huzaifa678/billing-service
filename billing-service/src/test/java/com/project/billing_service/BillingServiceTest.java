@@ -9,7 +9,8 @@ import com.project.billing_service.service.BillingInterface;
 import com.project.billing_service.service.BillingService;
 import com.project.billing_service.service.RateLimiterService;
 import com.project.billing_service.service.UsageChargeService;
-import subscription.Subscription;
+import com.project.subscription.v1.GetSubscriptionResponse;
+import com.project.subscription.v1.GetUserActiveSubscriptionsResponse;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,13 +91,13 @@ class BillingServiceTest {
         });
 
         when(subscriptionGrpcClient.getSubscription(anyString()))
-                .thenReturn(Subscription.SubscriptionResponse.newBuilder()
+                .thenReturn(GetSubscriptionResponse.newBuilder()
                         .setStatus("ACTIVE")
                         .build());
 
         when(subscriptionGrpcClient.getUserActiveSubscriptions(anyString()))
-                .thenReturn(Subscription.GetUserActiveSubscriptionsResponse.newBuilder()
-                        .addSubscriptions(Subscription.SubscriptionResponse.newBuilder()
+                .thenReturn(GetUserActiveSubscriptionsResponse.newBuilder()
+                        .addSubscriptions(GetSubscriptionResponse.newBuilder()
                                 .setStatus("ACTIVE")
                                 .build())
                         .build());
@@ -132,7 +133,7 @@ class BillingServiceTest {
         dto.setSubscriptionId(UUID.randomUUID());
 
         when(subscriptionGrpcClient.getSubscription(anyString()))
-                .thenReturn(Subscription.SubscriptionResponse.newBuilder()
+                .thenReturn(GetSubscriptionResponse.newBuilder()
                         .setStatus("CANCELED")
                         .build());
 

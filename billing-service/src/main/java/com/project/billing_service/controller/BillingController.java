@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
-import subscription.v1.Subscription;
+import com.project.subscription.v1.GetSubscriptionRequest;
+import com.project.subscription.v1.GetSubscriptionResponse;
+import com.project.subscription.v1.GetUserActiveSubscriptionsRequest;
+import com.project.subscription.v1.GetUserActiveSubscriptionsResponse;
 
 @RestController
 @RequestMapping("/api/billing")
@@ -42,10 +45,10 @@ public class BillingController {
     }
 
     @GetMapping("/active")
-    public ResponseEntity<List<Subscription.GetSubscriptionResponse>> getActiveSubscriptions(
+    public ResponseEntity<List<GetSubscriptionResponse>> getActiveSubscriptions(
             @RequestParam UUID userId
     ) {
-        List<Subscription.GetSubscriptionResponse> subscriptions =
+        List<GetSubscriptionResponse> subscriptions =
                 billingService.getActiveSubscriptions(userId);
         return ResponseEntity.ok(subscriptions);
     }

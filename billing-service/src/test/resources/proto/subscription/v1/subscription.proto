@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package subscription.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.project.subscription.v1";
+
+service SubscriptionService {
+  rpc GetSubscription(GetSubscriptionRequest) 
+      returns (GetSubscriptionResponse);
+
+  rpc GetUserActiveSubscriptions(GetUserActiveSubscriptionsRequest) 
+      returns (GetUserActiveSubscriptionsResponse);
+}
+
+message GetSubscriptionRequest {
+  string subscription_id = 1;
+}
+
+message GetSubscriptionResponse {
+  string id = 1;
+  string user_id = 2;
+  string plan_id = 3;
+  string status = 4;
+  google.protobuf.Timestamp current_period_start = 5;
+  google.protobuf.Timestamp current_period_end = 6;
+  bool cancel_at_period_end = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message GetUserActiveSubscriptionsRequest {
+  string user_id = 1;
+}
+
+message GetUserActiveSubscriptionsResponse {
+  repeated GetSubscriptionResponse subscriptions = 1;
+}

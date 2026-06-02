@@ -1,15 +1,18 @@
 package com.project.billing_service;
 
 import io.grpc.stub.StreamObserver;
-import subscription.Subscription;
-import subscription.SubscriptionServiceGrpc;
+import com.project.subscription.v1.GetSubscriptionRequest;
+import com.project.subscription.v1.GetSubscriptionResponse;
+import com.project.subscription.v1.GetUserActiveSubscriptionsRequest;
+import com.project.subscription.v1.GetUserActiveSubscriptionsResponse;
+import com.project.subscription.v1.SubscriptionServiceGrpc;
 
 public class FakeSubscriptionService extends SubscriptionServiceGrpc.SubscriptionServiceImplBase {
 
     @Override
     public void getSubscription(
-            Subscription.GetSubscriptionRequest request,
-            StreamObserver<Subscription.SubscriptionResponse> responseObserver
+            GetSubscriptionRequest request,
+            StreamObserver<GetSubscriptionResponse> responseObserver
     ) {
 
         String status = "ACTIVE";
@@ -19,7 +22,7 @@ public class FakeSubscriptionService extends SubscriptionServiceGrpc.Subscriptio
         }
 
         responseObserver.onNext(
-                Subscription.SubscriptionResponse.newBuilder()
+                GetSubscriptionResponse.newBuilder()
                         .setStatus(status)
                         .build()
         );
@@ -29,17 +32,17 @@ public class FakeSubscriptionService extends SubscriptionServiceGrpc.Subscriptio
 
     @Override
     public void getUserActiveSubscriptions(
-            Subscription.GetUserActiveSubscriptionsRequest request,
-            StreamObserver<Subscription.GetUserActiveSubscriptionsResponse> responseObserver
+            GetUserActiveSubscriptionsRequest request,
+            StreamObserver<GetUserActiveSubscriptionsResponse> responseObserver
     ) {
 
-        Subscription.SubscriptionResponse sub =
-                Subscription.SubscriptionResponse.newBuilder()
+        GetSubscriptionResponse sub =
+                GetSubscriptionResponse.newBuilder()
                         .setStatus("ACTIVE")
                         .build();
 
         responseObserver.onNext(
-                Subscription.GetUserActiveSubscriptionsResponse.newBuilder()
+                GetUserActiveSubscriptionsResponse.newBuilder()
                         .addSubscriptions(sub)
                         .build()
         );

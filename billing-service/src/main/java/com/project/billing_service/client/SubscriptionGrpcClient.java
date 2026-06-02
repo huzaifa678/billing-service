@@ -5,8 +5,11 @@ import io.github.resilience4j.retry.annotation.Retry;
 import io.grpc.ManagedChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import subscription.v1.Subscription;
-import subscription.v1.SubscriptionServiceGrpc;
+import com.project.subscription.v1.GetSubscriptionRequest;
+import com.project.subscription.v1.GetSubscriptionResponse;
+import com.project.subscription.v1.GetUserActiveSubscriptionsRequest;
+import com.project.subscription.v1.GetUserActiveSubscriptionsResponse;
+import com.project.subscription.v1.SubscriptionServiceGrpc;
 
 import javax.naming.ServiceUnavailableException;
 
@@ -22,9 +25,9 @@ public class SubscriptionGrpcClient {
 
     @Retry(name = "subscriptionGrpc", fallbackMethod = "subscriptionFallback")
     @CircuitBreaker(name = "subscriptionGrpc", fallbackMethod = "subscriptionFallback")
-    public Subscription.GetSubscriptionResponse getSubscription(String subscriptionId) {
-        Subscription.GetSubscriptionRequest request =
-                Subscription.GetSubscriptionRequest.newBuilder()
+    public GetSubscriptionResponse getSubscription(String subscriptionId) {
+        GetSubscriptionRequest request =
+                GetSubscriptionRequest.newBuilder()
                         .setSubscriptionId(subscriptionId)
                         .build();
 
@@ -33,23 +36,23 @@ public class SubscriptionGrpcClient {
 
     @Retry(name = "subscriptionGrpc", fallbackMethod = "getUserActiveSubscriptionsFallback")
     @CircuitBreaker(name = "subscriptionGrpc", fallbackMethod = "getUserActiveSubscriptionsFallback")
-    public Subscription.GetUserActiveSubscriptionsResponse getUserActiveSubscriptions(String userId) {
-        Subscription.GetUserActiveSubscriptionsRequest request =
-                Subscription.GetUserActiveSubscriptionsRequest.newBuilder()
+    public GetUserActiveSubscriptionsResponse getUserActiveSubscriptions(String userId) {
+        GetUserActiveSubscriptionsRequest request =
+                GetUserActiveSubscriptionsRequest.newBuilder()
                         .setUserId(userId)
                         .build();
 
         return stub.getUserActiveSubscriptions(request);
     }
 
-    private Subscription.GetSubscriptionResponse subscriptionFallback(String id, Throwable ex) throws ServiceUnavailableException {
+    private GetSubscriptionResponse subscriptionFallback(String id, Throwable ex) throws ServiceUnavailableException {
         log.error("Subscription service call failed for id: {}", id, ex);
         throw new ServiceUnavailableException(
                 "Subscription service unavailable for " + id
         );
     }
 
-    private Subscription.GetUserActiveSubscriptionsResponse getUserActiveSubscriptionsFallback(String userId, Throwable ex) throws ServiceUnavailableException {
+    private GetUserActiveSubscriptionsResponse getUserActiveSubscriptionsFallback(String userId, Throwable ex) throws ServiceUnavailableException {
         throw new ServiceUnavailableException(
                 "Subscription service unavailable while fetching active subscriptions for user " + userId
         );

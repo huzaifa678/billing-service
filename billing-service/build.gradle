@@ -89,6 +89,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jdbc-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-opentelemetry-test'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
@@ -160,8 +161,15 @@ tasks.named('asciidoctor') {
     dependsOn test
 }
 
+tasks.register('pactConsumerTest', Test) {
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.project.billing_service.pact.*'
+    }
+}
+
 tasks.register('copyPacts', Copy) {
-    dependsOn tasks.test
+    dependsOn tasks.named('pactConsumerTest')
     from layout.buildDirectory.dir('pacts')
     into '../../subscription-service/subscription-service/pacts'
     include '*.json'
