@@ -74,7 +74,7 @@ dependencies {
 
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 
-    implementation 'com.stripe:stripe-java:32.1.0'
+    implementation 'com.stripe:stripe-java:32.2.0'
 
     implementation 'build.buf.gen:protocol-buffer-org_proto_protocolbuffers_java:34.1.0.1.20260428122725.252ac983a046'
     //implementation 'build.buf.gen:protocol-buffer-org_proto_grpc_java:34.1.0.1.20260428122725.252ac983a046'
