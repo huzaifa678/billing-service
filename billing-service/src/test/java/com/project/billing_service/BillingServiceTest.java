@@ -15,18 +15,9 @@ import com.project.subscription.v1.GetUserActiveSubscriptionsResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.kafka.KafkaContainer;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -37,27 +28,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @Import(GrpcTestConfig.class)
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@ActiveProfiles("test")
-@Testcontainers
-class BillingServiceTest {
-
-    @ServiceConnection
-    @Container
-    static final KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("apache/kafka-native:latest"));
-
-    @Container
-    @ServiceConnection
-    static final PostgreSQLContainer postgres =
-            new PostgreSQLContainer("postgres:16-alpine")
-                    .withDatabaseName("test")
-                    .withUsername("test")
-                    .withPassword("test");
-
-    @Container
-    @ServiceConnection
-    static final GenericContainer redis = new GenericContainer(DockerImageName.parse("redis:7-alpine"))
-                .withExposedPorts(6379);
+class BillingServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private BillingService billingService;
