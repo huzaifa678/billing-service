@@ -1,25 +1,17 @@
 package com.project.billing_service.service;
 
-import billing.SubscriptionStatus;
-import billing.SubscriptionUpdated;
-import com.project.billing_service.client.SubscriptionGrpcClient;
 import com.project.billing_service.exceptions.InvalidSubscriptionStateException;
 import com.project.billing_service.exceptions.InvoiceNotFoundException;
 import com.project.billing_service.exceptions.PaymentFailedException;
-import com.project.billing_service.exceptions.SubscriptionServiceUnavailableException;
 import com.project.billing_service.model.dtos.InvoiceDto;
 import com.project.billing_service.model.entities.InvoiceEntity;
 import com.project.billing_service.model.entities.InvoiceStatus;
 import com.project.billing_service.model.mapper.InvoiceMapper;
 import com.project.billing_service.repository.InvoiceRepository;
-import com.stripe.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.project.subscription.v1.GetSubscriptionRequest;
 import com.project.subscription.v1.GetSubscriptionResponse;
-import com.project.subscription.v1.GetUserActiveSubscriptionsRequest;
-import com.project.subscription.v1.GetUserActiveSubscriptionsResponse;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -30,27 +22,24 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class BillingService {
 
+    private static final String ACTIVE_STATUS = "ACTIVE";
+    private static final String PAYMENT_SUCCEEDED = "succeeded";
+    private static final String USAGE_METRIC_API_CALLS = "api_calls";
+    private static final long USAGE_QUANTITY = 1L;
+
     private final InvoiceRepository invoiceRepository;
     private final InvoiceMapper mapper;
     private final BillingInterface paymentService; // strategy
-    private final SubscriptionGrpcClient subscriptionGrpcClient;
+    private final SubscriptionGateway subscriptionGateway;
     private final RateLimiterService rateLimiterService;
     private final UsageChargeService usageChargeService;
 
-
     public InvoiceEntity createInvoice(InvoiceDto dto) {
 
-        GetSubscriptionResponse sub;
-        try {
-            sub = subscriptionGrpcClient
-                    .getSubscription(dto.getSubscriptionId().toString());
-        } catch (Exception ex) {
-            throw new SubscriptionServiceUnavailableException(
-                    "Subscription service is unavailable"
-            );
-        }
+        GetSubscriptionResponse sub =
+                subscriptionGateway.getSubscription(dto.getSubscriptionId().toString());
 
-        if (!"ACTIVE".equals(sub.getStatus())) {
+        if (!ACTIVE_STATUS.equals(sub.getStatus())) {
             throw new InvalidSubscriptionStateException(
                     "Cannot create invoice for inactive subscription"
             );
@@ -87,20 +76,8 @@ public class BillingService {
         try {
             String status = paymentService.payInvoice(invoice, paymentMethodId);
 
-            if ("succeeded".equals(status)) {
-
-                String metric = "api_calls";
-                long quantity = 1L;
-
-                BigDecimal unitPrice =
-                        invoice.getAmount().divide(BigDecimal.valueOf(quantity));
-
-                usageChargeService.createUsageCharge(
-                        invoice.getInvoiceId(),
-                        metric,
-                        quantity,
-                        unitPrice
-                );
+            if (PAYMENT_SUCCEEDED.equals(status)) {
+                recordUsageCharge(invoice);
             }
 
             return status;
@@ -116,20 +93,20 @@ public class BillingService {
         }
     }
 
+    private void recordUsageCharge(InvoiceEntity invoice) {
+        BigDecimal unitPrice =
+                invoice.getAmount().divide(BigDecimal.valueOf(USAGE_QUANTITY));
+
+        usageChargeService.createUsageCharge(
+                invoice.getInvoiceId(),
+                USAGE_METRIC_API_CALLS,
+                USAGE_QUANTITY,
+                unitPrice
+        );
+    }
+
     public List<GetSubscriptionResponse> getActiveSubscriptions(UUID userId) {
-
-        try {
-            GetUserActiveSubscriptionsResponse response =
-                    subscriptionGrpcClient
-                            .getUserActiveSubscriptions(userId.toString());
-
-            return response.getSubscriptionsList();
-
-        } catch (Exception ex) {
-            throw new SubscriptionServiceUnavailableException(
-                    "Subscription service is unavailable"
-            );
-        }
+        return subscriptionGateway.getActiveSubscriptions(userId.toString());
     }
 
     @Transactional
@@ -153,36 +130,5 @@ public class BillingService {
                 .build();
 
         invoiceRepository.save(invoice);
-    }
-
-    @Transactional
-    public void handleSubscriptionUpdate(SubscriptionUpdated event) {
-
-        UUID subscriptionId =
-                UUID.fromString(event.getSubscriptionId());
-
-        SubscriptionStatus status = event.getStatus();
-
-        switch (status) {
-
-            case ACTIVE -> invoiceRepository
-                    .findBySubscriptionId(subscriptionId)
-                    .ifPresent(invoice -> {
-                        if (InvoiceStatus.DRAFT.name()
-                                .equals(invoice.getStatus())) {
-                            invoice.setStatus(InvoiceStatus.ISSUED.name());
-                        }
-                    });
-
-            case CANCELED, EXPIRED -> invoiceRepository
-                    .findBySubscriptionId(subscriptionId)
-                    .ifPresent(invoice -> {
-                        invoice.setStatus(InvoiceStatus.FAILED.name());
-                        invoiceRepository.save(invoice);
-                    });
-
-            case TRIALING -> {
-            }
-        }
     }
 }
