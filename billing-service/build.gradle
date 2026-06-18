@@ -70,7 +70,7 @@ dependencies {
 
     implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
 
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.21.0-alpha'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.28.1-alpha'
     implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
 
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
