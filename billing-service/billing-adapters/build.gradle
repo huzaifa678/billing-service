@@ -1,0 +1,112 @@
+// billing-adapters: all driving (REST, Kafka consumers) and driven (JPA, Stripe,
+// gRPC, Kafka producer, Redis/bucket4j) adapters, plus their @Configuration and the
+// Avro / buf-gRPC code generation. Depends on application (and transitively domain).
+
+plugins {
+    id 'com.github.davidmc24.gradle.plugin.avro'
+}
+
+description = 'Billing adapters (REST, persistence, payment, subscription, messaging, rate-limit)'
+
+ext {
+    avroVersion = rootProject.ext.avroVersion
+    confluentVersion = rootProject.ext.confluentVersion
+}
+
+dependencies {
+    api project(':billing-application')
+    api project(':billing-domain')
+
+    // Web (controllers, DTO validation)
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
+
+    // Persistence
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // Redis + rate limiting
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation "com.bucket4j:bucket4j_jdk17-core:8.19.0"
+    implementation "com.bucket4j:bucket4j_jdk17-lettuce:8.19.0"
+
+    // Kafka + Avro
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
+    implementation "org.apache.avro:avro:${avroVersion}"
+    implementation "io.confluent:kafka-avro-serializer:${confluentVersion}"
+
+    // gRPC (subscription client)
+    implementation 'org.springframework.grpc:spring-grpc-server-web-spring-boot-starter'
+    implementation 'io.grpc:grpc-netty-shaded'
+    implementation 'io.grpc:grpc-stub'
+    implementation 'io.grpc:grpc-protobuf'
+    implementation 'javax.annotation:javax.annotation-api:1.3.2'
+    implementation 'build.buf.gen:protocol-buffer-org_proto_protocolbuffers_java:34.1.0.1.20260428122725.252ac983a046'
+
+    // Resilience
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
+
+    // Stripe
+    implementation 'com.stripe:stripe-java:32.2.0'
+
+    testImplementation 'au.com.dius.pact.consumer:junit5:4.7.3'
+}
+
+// The pact consumer test drives an external protobuf plugin + gRPC mock server; keep
+// it out of the regular unit-test run and execute it via the dedicated task below.
+tasks.named('test') {
+    filter {
+        excludeTestsMatching 'com.project.billing.adapter.out.subscription.pact.*'
+    }
+}
+
+avro {
+    stringType = "String"
+    fieldVisibility = "PRIVATE"
+    createSetters = false
+}
+
+tasks.named('generateAvroJava') {
+    outputDir = file("$projectDir/build/generated/avro")
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir("$projectDir/build/generated/avro")
+            srcDir("$projectDir/build/generated/buf")
+        }
+    }
+}
+
+// Generate the subscription gRPC/protobuf stubs from src/main/proto via the buf CLI.
+// Requires `buf` on PATH (https://buf.build). Output lands in build/generated/buf,
+// which is added to the main source set above.
+tasks.register('generateBufCode', Exec) {
+    workingDir = projectDir
+    commandLine 'buf', 'generate'
+    inputs.dir("$projectDir/src/main/proto")
+    inputs.file("$projectDir/buf.gen.yaml")
+    inputs.file("$projectDir/buf.yaml")
+    outputs.dir("$projectDir/build/generated/buf")
+}
+
+tasks.named("compileJava") {
+    dependsOn("generateAvroJava", "generateBufCode")
+}
+
+// Pact consumer contract test for the subscription gRPC client.
+tasks.register('pactConsumerTest', Test) {
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.project.billing.adapter.out.subscription.pact.*'
+    }
+}
+
+tasks.register('copyPacts', Copy) {
+    dependsOn tasks.named('pactConsumerTest')
+    from layout.buildDirectory.dir('pacts')
+    into "${rootProject.projectDir}/../../subscription-service/subscription-service/pacts"
+    include '*.json'
+}

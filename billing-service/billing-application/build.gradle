@@ -1,0 +1,12 @@
+// billing-application: use cases (inbound command/query ports) and outbound ports.
+// Depends only on the domain. Spring is limited to context/tx for @Service/@Transactional
+// wiring — no web, persistence, or messaging frameworks here.
+
+description = 'Billing application layer (ports and use-case services)'
+
+dependencies {
+    api project(':billing-domain')
+
+    implementation 'org.springframework:spring-context'
+    implementation 'org.springframework:spring-tx'
+}

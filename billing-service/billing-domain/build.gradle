@@ -1,0 +1,5 @@
+// billing-domain: the pure DDD core.
+// No Spring, no JPA, no Avro, no gRPC, no Stripe — plain Java only.
+// (Lombok + test dependencies are inherited from the root subprojects block.)
+
+description = 'Billing domain model (aggregates, value objects, domain events)'

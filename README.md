@@ -10,33 +10,61 @@ A Spring Boot 4 microservice that handles payment processing, invoice generation
 
 ## Architecture
 
+The service follows a **Domain-Driven Design / hexagonal (ports & adapters)** layout split across four Gradle modules. The domain and application core have **no framework dependencies**; all I/O crosses through ports implemented by adapters. Dependencies point inward — `adapters` and `bootstrap` depend on `application`, which depends on `domain`; `domain` depends on nothing. This boundary is enforced by an ArchUnit test.
+
 ```mermaid
 graph TD
-    A["Kafka<br/>billing.usage-charge.created"] -->|Avro Events| B["BillingService<br/>Port 8082"]
-    
-    B --> C["Controller Layer<br/>REST API / Event Handlers"]
-    
-    C --> D["Service Layer<br/>Business Logic"]
-    
-    D --> E["Repository Layer<br/>Data Access"]
-    
-    E -->|CRUD Operations| F["PostgreSQL<br/>JPA/Hibernate"]
-    
-    D -->|Stripe Charges| G["Stripe API"]
-    D -->|gRPC Call| H["Subscription Service<br/>Port 50051"]
-    D -->|Token Bucket| I["Redis<br/>Bucket4j Rate Limiter"]
-    
-    G -->|Invoice/Charge Data| E
-    
-    style A fill:#FF6B6B,stroke:#333,color:#fff,stroke-width:2px
-    style B fill:#4ECDC4,stroke:#333,color:#fff,stroke-width:3px
-    style C fill:#FFA07A,stroke:#333,color:#fff,stroke-width:2px
-    style D fill:#FFD700,stroke:#333,color:#333,stroke-width:2px
-    style E fill:#98D8C8,stroke:#333,color:#333,stroke-width:2px
-    style F fill:#6C63FF,stroke:#333,color:#fff,stroke-width:2px
-    style G fill:#FFE66D,stroke:#333,color:#333,stroke-width:2px
-    style H fill:#95E1D3,stroke:#333,color:#333,stroke-width:2px
-    style I fill:#FF8B94,stroke:#333,color:#fff,stroke-width:2px
+    subgraph Driving["Inbound Adapters (billing-adapters · adapter.in)"]
+        REST["REST Controller<br/>/api/billing"]
+        KafkaIn["Kafka Consumer<br/>usage-charge.created"]
+    end
+
+    subgraph Core["Core (framework-free)"]
+        subgraph App["Application (billing-application)"]
+            InPorts["Inbound Ports<br/>CreateInvoice / PayInvoice /<br/>Queries · UseCases"]
+            Services["Application Services<br/>orchestration + tx"]
+            OutPorts["Outbound Ports<br/>Repository / Payment /<br/>Subscription / RateLimiter"]
+        end
+        subgraph Domain["Domain (billing-domain)"]
+            Model["Aggregates & VOs<br/>Invoice · Subscription · Usage<br/>domain events + invariants"]
+        end
+    end
+
+    subgraph Driven["Outbound Adapters (billing-adapters · adapter.out)"]
+        Persistence["Persistence<br/>Spring Data JPA"]
+        Payment["Payment<br/>Stripe SDK"]
+        SubGrpc["Subscription<br/>gRPC client + Resilience4j"]
+        RateLimit["Rate Limiter<br/>Bucket4j + Redis"]
+    end
+
+    REST --> InPorts
+    KafkaIn --> InPorts
+    InPorts --> Services
+    Services --> Model
+    Services --> OutPorts
+
+    OutPorts -. implemented by .-> Persistence
+    OutPorts -. implemented by .-> Payment
+    OutPorts -. implemented by .-> SubGrpc
+    OutPorts -. implemented by .-> RateLimit
+
+    Persistence -->|JPA/Hibernate| PG[("PostgreSQL")]
+    Payment -->|charges| Stripe["Stripe API"]
+    SubGrpc -->|gRPC :50051| SubSvc["Subscription Service"]
+    RateLimit -->|token bucket| Redis[("Redis")]
+
+    Boot["billing-bootstrap<br/>Spring Boot app · wiring · config · :8082"] -.->|assembles| Core
+    Boot -.->|assembles| Driving
+    Boot -.->|assembles| Driven
+
+    style Domain fill:#FFD700,stroke:#333,color:#333
+    style App fill:#98D8C8,stroke:#333,color:#333
+    style Driving fill:#4ECDC4,stroke:#333,color:#fff
+    style Driven fill:#95E1D3,stroke:#333,color:#333
+    style Boot fill:#FFA07A,stroke:#333,color:#333
+    style PG fill:#6C63FF,stroke:#333,color:#fff
+    style Redis fill:#FF8B94,stroke:#333,color:#fff
+    style Stripe fill:#FFE66D,stroke:#333,color:#333
 ```
 
 ## Tech Stack
@@ -69,28 +97,53 @@ graph TD
 
 ## Project Structure
 
+Four Gradle modules, wired together by `billing-bootstrap`. Package root is `com.project.billing`.
+
 ```
 billing-service/
-├── src/
-│   ├── main/
-│   │   ├── java/com/project/billing_service/
-│   │   │   ├── controller/      # REST controllers (BillingController, HealthController)
-│   │   │   ├── service/         # Business logic
-│   │   │   ├── client/          # gRPC client to subscription-service
-│   │   │   ├── events/          # Kafka Avro consumer
-│   │   │   ├── model/           # JPA entities + DTOs
-│   │   │   ├── repository/      # Spring Data repositories
-│   │   │   ├── config/          # Stripe, Redis, Kafka, gRPC, OTel config
-│   │   │   └── exceptions/      # Exception handlers
-│   │   ├── avro/                # Avro schema definitions (.avsc)
-│   │   ├── proto/               # Protobuf definitions
-│   │   └── resources/
-│   │       ├── application.properties
-│   │       └── application-cred.properties  # secrets (gitignored)
-│   └── test/                    # Unit + integration tests (Testcontainers)
+├── billing-domain/              # Pure domain — no framework deps
+│   └── src/main/java/.../domain/
+│       ├── invoice/             # Invoice aggregate + value objects
+│       ├── subscription/        # Subscription aggregate
+│       ├── usage/               # Usage aggregate + domain events (event/)
+│       ├── shared/              # Shared value objects
+│       └── exception/           # Domain exceptions
+│
+├── billing-application/         # Use cases + ports (framework-free)
+│   └── src/main/java/.../application/
+│       ├── invoice/
+│       │   ├── port/in/         # Inbound ports (CreateInvoice/PayInvoice/Queries)
+│       │   ├── port/out/        # Outbound ports (Repository/Payment/Subscription)
+│       │   └── service/         # Application services (orchestration)
+│       ├── usage/               # Usage use cases + ports + service
+│       ├── shared/port/out/     # Shared outbound ports (e.g. RateLimiter)
+│       └── exception/           # Application-level exceptions
+│
+├── billing-adapters/            # Ports & adapters implementations
+│   ├── src/main/java/.../adapter/
+│   │   ├── in/rest/             # REST controller + DTOs + mapper
+│   │   ├── in/messaging/        # Kafka Avro consumer
+│   │   ├── out/persistence/     # Spring Data JPA repository adapter
+│   │   ├── out/payment/         # Stripe payment adapter (+ config)
+│   │   ├── out/subscription/    # gRPC client adapter (+ config)
+│   │   ├── out/messaging/       # Kafka producer (+ config)
+│   │   └── out/ratelimit/       # Bucket4j + Redis adapter (+ config)
+│   └── src/main/{avro,proto}/   # Avro (.avsc) + Protobuf schema definitions
+│
+├── billing-bootstrap/           # Spring Boot app — wiring, config, entrypoint
+│   └── src/main/
+│       ├── java/.../config/     # Spring @Configuration (beans, OTel, etc.)
+│       └── resources/
+│           ├── application.properties
+│           ├── application-cred.properties   # secrets (gitignored)
+│           └── logback-spring.xml
+│
+├── settings.gradle              # Module includes
 ├── build.gradle
 └── Dockerfile
 ```
+
+> Architecture boundaries (domain ← application ← adapters/bootstrap) are enforced by an ArchUnit test in `billing-bootstrap`.
 
 ## Getting Started
 
@@ -134,7 +187,7 @@ management.otlp.metrics.export.url=http://localhost:43180/v1/metrics
 management.opentelemetry.tracing.export.otlp.endpoint=http://localhost:43180/v1/traces
 ```
 
-Create `src/main/resources/application-cred.properties` with your secrets:
+Create `billing-bootstrap/src/main/resources/application-cred.properties` with your secrets:
 
 ```properties
 stripe.api.key=sk_test_...
@@ -143,14 +196,14 @@ stripe.api.key=sk_test_...
 ### Build & Run
 
 ```bash
-# Build (skips tests)
+# Build all modules (skips tests)
 ./gradlew build -x test
 
-# Run
-./gradlew bootRun
+# Run (bootRun lives in the bootstrap module)
+./gradlew :billing-bootstrap:bootRun
 
 # Or run the fat JAR
-java -jar build/libs/billing-service-0.0.1-SNAPSHOT.jar
+java -jar billing-bootstrap/build/libs/billing-bootstrap-0.0.1-SNAPSHOT.jar
 ```
 
 ### Testing
@@ -181,8 +234,10 @@ OpenAPI JSON: `http://localhost:8082/api-docs`
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/billing/charge` | Create a charge via Stripe |
-| `GET` | `/api/billing/invoices/{userId}` | List invoices for a user |
+| `POST` | `/api/billing/invoices` | Create an invoice (returns `201 Created`) |
+| `GET` | `/api/billing/invoices/{id}` | Fetch an invoice by ID (returns `200 OK`) |
+| `POST` | `/api/billing/invoices/{id}/pay` | Pay an invoice via Stripe; returns the payment status |
+| `GET` | `/api/billing/active?userId={userId}` | List active subscriptions for a user |
 | `GET` | `/actuator/health` | Health check |
 | `GET` | `/actuator/prometheus` | Prometheus metrics |
 

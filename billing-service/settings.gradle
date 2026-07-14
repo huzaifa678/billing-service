@@ -1,1 +1,6 @@
 rootProject.name = 'billing-service'
+
+include 'billing-domain'
+include 'billing-application'
+include 'billing-adapters'
+include 'billing-bootstrap'
