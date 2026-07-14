@@ -23,7 +23,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
     // OpenTelemetry (AppenderConfig)
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.28.1-alpha'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.29.0-alpha'
     implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
 
     // OpenAPI (OpenApiConfig)
