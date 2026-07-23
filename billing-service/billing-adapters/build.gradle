@@ -48,7 +48,7 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
 
     // Stripe
-    implementation 'com.stripe:stripe-java:32.2.0'
+    implementation 'com.stripe:stripe-java:33.1.1'
 
     testImplementation 'au.com.dius.pact.consumer:junit5:4.7.3'
 }
