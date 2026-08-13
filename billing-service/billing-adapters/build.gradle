@@ -50,7 +50,7 @@ dependencies {
     // Stripe
     implementation 'com.stripe:stripe-java:32.2.0'
 
-    testImplementation 'au.com.dius.pact.consumer:junit5:4.7.3'
+    testImplementation 'au.com.dius.pact.consumer:junit5:4.7.4'
 }
 
 // The pact consumer test drives an external protobuf plugin + gRPC mock server; keep
