@@ -56,6 +56,10 @@ subprojects {
         implementation(platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}"))
         implementation(platform("org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"))
         implementation(platform("org.springframework.grpc:spring-grpc-dependencies:${springGrpcVersion}"))
+        // The platform BOMs above only constrain the implementation config; the
+        // annotation processor path needs the Boot BOM too, otherwise Lombok has no
+        // managed version and compilation fails to resolve it.
+        annotationProcessor(platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}"))
         compileOnly 'org.projectlombok:lombok'
         annotationProcessor 'org.projectlombok:lombok'
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
