@@ -4,8 +4,48 @@ updates:
     directory: "/billing-service"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 10
+    # The Spring Boot version lives in two places in build.gradle (the plugins block
+    # and the `springBootVersion` ext that drives the platform BOM). Grouping the
+    # whole Spring ecosystem into one PR keeps the plugin, the BOMs and every managed
+    # artifact on the same version instead of drifting apart across separate PRs.
+    groups:
+      spring:
+        patterns:
+          - "org.springframework"
+          - "org.springframework.*"
+          - "org.springframework.boot*"
+          - "org.springframework.cloud*"
+          - "org.springframework.grpc*"
+      kafka-avro:
+        patterns:
+          - "org.apache.avro*"
+          - "io.confluent*"
+      grpc:
+        patterns:
+          - "io.grpc*"
+          - "io.opentelemetry*"
+          - "io.opentelemetry.instrumentation*"
+      testing:
+        patterns:
+          - "org.testcontainers*"
+          - "org.mockito*"
+          - "org.junit*"
+          - "au.com.dius.pact*"
+          - "com.tngtech.archunit*"
+    ignore:
+      # Stay on the current Spring major line — cross-major jumps need the plugin,
+      # the BOM and the Java baseline moved together by hand, not by Dependabot.
+      - dependency-name: "org.springframework.boot*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springframework.cloud*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
