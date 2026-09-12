@@ -47,6 +47,9 @@ public class InvoiceCommandService implements
 
     private static final Metric USAGE_METRIC_API_CALLS = Metric.of("api_calls");
     private static final long USAGE_QUANTITY = 1L;
+    // Mirrors PaymentResult's success status; returned by the idempotency guard
+    // when an invoice is already PAID.
+    private static final String PAYMENT_SUCCEEDED = "succeeded";
 
     private final InvoiceRepositoryPort invoiceRepository;
     private final PaymentPort paymentPort;
@@ -78,12 +81,23 @@ public class InvoiceCommandService implements
     }
 
     @Override
+    @Transactional
     public String pay(PayInvoiceCommand command) {
         InvoiceId invoiceId = InvoiceId.of(command.invoiceId());
 
         rateLimiter.checkPayInvoice(invoiceId);
 
-        Invoice invoice = loadInvoice(invoiceId);
+        // Pessimistic write lock: serialize concurrent pay attempts on the SAME
+        // invoice (retry / double-submit) so they cannot drive two Stripe charges
+        // or a lost status transition. The lock is per-invoice and held for this
+        // transaction; unrelated invoices are unaffected.
+        Invoice invoice = loadInvoiceForUpdate(invoiceId);
+
+        // Idempotency guard: the first tx to win the lock and commit PAID means the
+        // next waiter observes PAID and returns success without charging again.
+        if (invoice.status() == InvoiceStatus.PAID) {
+            return PAYMENT_SUCCEEDED;
+        }
 
         try {
             PaymentResult result = paymentPort.pay(invoice, command.paymentMethodId());
@@ -169,6 +183,13 @@ public class InvoiceCommandService implements
 
     private Invoice loadInvoice(InvoiceId invoiceId) {
         return invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new InvoiceNotFoundException(
+                        "Invoice not found with id: " + invoiceId
+                ));
+    }
+
+    private Invoice loadInvoiceForUpdate(InvoiceId invoiceId) {
+        return invoiceRepository.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> new InvoiceNotFoundException(
                         "Invoice not found with id: " + invoiceId
                 ));

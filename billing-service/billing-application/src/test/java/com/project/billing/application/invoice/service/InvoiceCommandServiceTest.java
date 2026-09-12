@@ -99,7 +99,7 @@ class InvoiceCommandServiceTest {
     void payInvoice_success_recordsUsageCharge() {
         UUID invoiceId = UUID.randomUUID();
         Invoice invoice = existingInvoice(invoiceId, "100");
-        when(invoiceRepository.findById(InvoiceId.of(invoiceId))).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.findByIdForUpdate(InvoiceId.of(invoiceId))).thenReturn(Optional.of(invoice));
         when(paymentPort.pay(any(), any())).thenReturn(new PaymentResult("succeeded"));
 
         String status = service.pay(new PayInvoiceCommand(invoiceId, "pm_123"));
@@ -119,7 +119,7 @@ class InvoiceCommandServiceTest {
     void payInvoice_failure_marksInvoiceFailedAndThrows() {
         UUID invoiceId = UUID.randomUUID();
         Invoice invoice = existingInvoice(invoiceId, "100");
-        when(invoiceRepository.findById(InvoiceId.of(invoiceId))).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.findByIdForUpdate(InvoiceId.of(invoiceId))).thenReturn(Optional.of(invoice));
         when(paymentPort.pay(any(), any())).thenThrow(new RuntimeException("payment failed"));
 
         assertThrows(PaymentFailedException.class,

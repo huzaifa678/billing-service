@@ -16,6 +16,13 @@ public interface InvoiceRepositoryPort {
 
     Optional<Invoice> findById(InvoiceId id);
 
+    /**
+     * Load an invoice under a pessimistic write lock held until the current
+     * transaction commits, so concurrent payment attempts on the same invoice are
+     * serialized. Must be called within a transaction.
+     */
+    Optional<Invoice> findByIdForUpdate(InvoiceId id);
+
     Optional<Invoice> findBySubscriptionId(SubscriptionId subscriptionId);
 
     List<Invoice> findByCustomerId(CustomerId customerId);

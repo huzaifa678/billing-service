@@ -32,6 +32,11 @@ public class InvoicePersistenceAdapter implements InvoiceRepositoryPort {
     }
 
     @Override
+    public Optional<Invoice> findByIdForUpdate(InvoiceId id) {
+        return jpaRepository.findByIdForUpdate(id.value()).map(mapper::toDomain);
+    }
+
+    @Override
     public Optional<Invoice> findBySubscriptionId(SubscriptionId subscriptionId) {
         return jpaRepository.findBySubscriptionId(subscriptionId.value()).map(mapper::toDomain);
     }
