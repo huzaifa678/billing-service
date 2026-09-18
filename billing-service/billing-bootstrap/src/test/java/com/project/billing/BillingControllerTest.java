@@ -78,7 +78,7 @@ class BillingControllerTest {
         );
         when(createInvoiceUseCase.create(any())).thenReturn(created);
 
-        mockMvc.perform(post("/api/billing/invoices")
+        mockMvc.perform(post("/api/v1/billing/invoices")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
