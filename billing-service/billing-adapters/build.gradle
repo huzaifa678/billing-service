@@ -28,8 +28,8 @@ dependencies {
 
     // Redis + rate limiting
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    implementation "com.bucket4j:bucket4j_jdk17-core:8.19.0"
-    implementation "com.bucket4j:bucket4j_jdk17-lettuce:8.19.0"
+    implementation "com.bucket4j:bucket4j_jdk17-core:8.20.0"
+    implementation "com.bucket4j:bucket4j_jdk17-lettuce:8.20.0"
 
     // Kafka + Avro
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
