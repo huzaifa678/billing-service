@@ -23,15 +23,18 @@ graph TD
         subgraph App["Application (billing-application)"]
             InPorts["Inbound Ports<br/>CreateInvoice / PayInvoice /<br/>Queries · UseCases"]
             Services["Application Services<br/>orchestration + tx"]
-            OutPorts["Outbound Ports<br/>Repository / Payment /<br/>Subscription / RateLimiter"]
+            OutPorts["Outbound Ports<br/>EventStore / Snapshot / Projection /<br/>ReadModel / Payment /<br/>Subscription / RateLimiter"]
         end
         subgraph Domain["Domain (billing-domain)"]
-            Model["Aggregates & VOs<br/>Invoice · Subscription · Usage<br/>domain events + invariants"]
+            Model["Aggregates & VOs<br/>Invoice · Usage (event-sourced)<br/>raise domain events + invariants"]
         end
     end
 
     subgraph Driven["Outbound Adapters (billing-adapters · adapter.out)"]
-        Persistence["Persistence<br/>Spring Data JPA"]
+        EventStore["Event Store<br/>append + replay"]
+        Snapshot["Snapshot Store<br/>every N events"]
+        Projection["Projection / Read Model<br/>Spring Data JPA"]
+        Relay["Outbox Relay<br/>@Scheduled → Avro"]
         Payment["Payment<br/>Stripe SDK"]
         SubGrpc["Subscription<br/>gRPC client + Resilience4j"]
         RateLimit["Rate Limiter<br/>Bucket4j + Redis"]
@@ -43,12 +46,18 @@ graph TD
     Services --> Model
     Services --> OutPorts
 
-    OutPorts -. implemented by .-> Persistence
+    OutPorts -. implemented by .-> EventStore
+    OutPorts -. implemented by .-> Snapshot
+    OutPorts -. implemented by .-> Projection
     OutPorts -. implemented by .-> Payment
     OutPorts -. implemented by .-> SubGrpc
     OutPorts -. implemented by .-> RateLimit
 
-    Persistence -->|JPA/Hibernate| PG[("PostgreSQL")]
+    EventStore -->|source of truth| PG[("PostgreSQL")]
+    Snapshot -->|bounds replay| PG
+    Projection -->|CQRS read model| PG
+    Relay -->|polls unpublished| PG
+    Relay -->|Avro + Schema Registry| Kafka["Kafka"]
     Payment -->|charges| Stripe["Stripe API"]
     SubGrpc -->|gRPC :50051| SubSvc["Subscription Service"]
     RateLimit -->|token bucket| Redis[("Redis")]
@@ -65,7 +74,65 @@ graph TD
     style PG fill:#6C63FF,stroke:#333,color:#fff
     style Redis fill:#FF8B94,stroke:#333,color:#fff
     style Stripe fill:#FFE66D,stroke:#333,color:#333
+    style Kafka fill:#231F20,stroke:#333,color:#fff
 ```
+
+### Event Sourcing (Invoice + UsageCharge)
+
+The `Invoice` and `UsageCharge` aggregates are **event-sourced** — their state is the fold of an
+append-only event stream rather than a mutable row:
+
+- **Shared event store as source of truth.** Behaviour raises typed events (`InvoiceEvent.Created`,
+  `Activated`, `Paid`, `Failed`; `UsageChargeCreated`) that are appended to `billing_event_store`
+  (one table, discriminated by `aggregate_type`). The store assigns each event its per-aggregate
+  sequence; the unique `(aggregate_type, aggregate_id, sequence)` constraint is the
+  **optimistic-concurrency** guard on write.
+- **Snapshots** of `Invoice` are written every _N_ events (`billing.invoice.snapshot-interval`,
+  default 50) to bound replay; `UsageCharge` is create-only, so it needs none.
+- **CQRS read model.** The `invoices` / `usage_charges` tables are now **projections**, upserted in
+  the same transaction as the append. The query side reads the projections and never replays events.
+- **Transactional-outbox relay to Avro/Kafka.** `BillingEventRelay` polls the store for unpublished
+  events and publishes them to Kafka as Avro (Schema Registry), marking them published only after the
+  broker acks — removing the previous persist-then-publish dual write. Delivery is at-least-once;
+  consumers dedupe on the `eventId` header.
+- **Payment safety preserved.** `pay()` keeps its **pessimistic lock** on the invoice's projection
+  row (serializing concurrent attempts), and the Stripe charge now also carries an **idempotency
+  key** derived from the invoice id — so no interleaving or retry can double-charge.
+
+The write path appends events, projects the read model, and snapshots on the every-_N_ boundary in
+one transaction; the load path folds the events after the newest snapshot back onto it; and the
+outbox relay drains the store to Kafka out of band:
+
+```mermaid
+flowchart TD
+    CMD["Command<br/>create · activate · pay · fail"] --> AGG["Invoice aggregate<br/>applies event · version++"]
+    AGG -->|pending events| SAVE["EventSourcedInvoiceRepository.save<br/>single transaction"]
+
+    SAVE -->|1 · append @ expected version| ES[("billing_event_store<br/>append-only · unique aggregate,seq")]
+    SAVE -->|2 · upsert| PROJ[("invoices projection<br/>CQRS read model")]
+    SAVE -->|3 · boundary check| CHK{"crossed every-N<br/>snapshot boundary?"}
+    CHK -->|yes| SNAP[("invoice_snapshot")]
+    CHK -->|no| NOOP(["no snapshot"])
+
+    LOAD["load / findByIdForUpdate"] -->|newest snapshot| SNAP
+    LOAD -->|events after snapshot version| ES
+    SNAP --> FOLD["replay tail onto snapshot<br/>→ current Invoice"]
+    ES --> FOLD
+
+    RELAY["BillingEventRelay<br/>@Scheduled"] -->|poll unpublished| ES
+    RELAY -->|publish Avro, then mark published| KAFKA["Kafka · Schema Registry"]
+
+    QUERY["InvoiceQueryService"] -->|reads, never replays| PROJ
+
+    style ES fill:#6C63FF,stroke:#333,color:#fff
+    style SNAP fill:#FFA07A,stroke:#333,color:#333
+    style PROJ fill:#98D8C8,stroke:#333,color:#333
+    style KAFKA fill:#231F20,stroke:#333,color:#fff
+    style CHK fill:#FFE66D,stroke:#333,color:#333
+```
+
+Schema for `billing_event_store` / `invoice_snapshot` ships as Liquibase changesets in the CD repo
+(`charts/billing-service/migrations/changelog.sql`), applied by the Argo PreSync hook.
 
 ## Tech Stack
 
