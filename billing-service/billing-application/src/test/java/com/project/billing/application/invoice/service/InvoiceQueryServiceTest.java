@@ -1,6 +1,6 @@
 package com.project.billing.application.invoice.service;
 
-import com.project.billing.application.invoice.port.out.InvoiceRepositoryPort;
+import com.project.billing.application.invoice.port.out.InvoiceReadModelPort;
 import com.project.billing.application.invoice.port.out.SubscriptionGatewayPort;
 import com.project.billing.domain.exception.InvoiceNotFoundException;
 import com.project.billing.domain.subscription.SubscriptionSnapshot;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 class InvoiceQueryServiceTest {
 
     @Mock
-    private InvoiceRepositoryPort invoiceRepository;
+    private InvoiceReadModelPort invoiceReadModel;
     @Mock
     private SubscriptionGatewayPort subscriptionGateway;
 
@@ -34,7 +34,7 @@ class InvoiceQueryServiceTest {
 
     @Test
     void getById_notFound_throws() {
-        when(invoiceRepository.findById(any())).thenReturn(Optional.empty());
+        when(invoiceReadModel.findById(any())).thenReturn(Optional.empty());
 
         assertThrows(InvoiceNotFoundException.class, () -> service.getById(UUID.randomUUID()));
     }

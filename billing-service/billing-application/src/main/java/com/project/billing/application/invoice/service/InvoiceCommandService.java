@@ -155,17 +155,18 @@ public class InvoiceCommandService implements
     }
 
     private void activateInvoice(SubscriptionId subscriptionId) {
-        invoiceRepository.findBySubscriptionId(subscriptionId)
-                .ifPresent(invoice -> {
-                    invoice.activate();
-                    invoiceRepository.save(invoice);
-                });
+        updateInvoiceForSubscription(subscriptionId, Invoice::activate);
     }
 
     private void failInvoice(SubscriptionId subscriptionId) {
+        updateInvoiceForSubscription(subscriptionId, Invoice::markFailed);
+    }
+
+    /** Load the subscription's invoice (if any), apply a transition, and persist it. */
+    private void updateInvoiceForSubscription(SubscriptionId subscriptionId, java.util.function.Consumer<Invoice> transition) {
         invoiceRepository.findBySubscriptionId(subscriptionId)
                 .ifPresent(invoice -> {
-                    invoice.markFailed();
+                    transition.accept(invoice);
                     invoiceRepository.save(invoice);
                 });
     }
@@ -179,13 +180,6 @@ public class InvoiceCommandService implements
                 USAGE_QUANTITY,
                 unitPrice
         ));
-    }
-
-    private Invoice loadInvoice(InvoiceId invoiceId) {
-        return invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new InvoiceNotFoundException(
-                        "Invoice not found with id: " + invoiceId
-                ));
     }
 
     private Invoice loadInvoiceForUpdate(InvoiceId invoiceId) {
