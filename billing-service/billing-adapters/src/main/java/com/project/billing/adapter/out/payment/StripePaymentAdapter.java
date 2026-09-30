@@ -5,6 +5,7 @@ import com.project.billing.application.invoice.port.out.PaymentResult;
 import com.project.billing.domain.invoice.Invoice;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
+import com.stripe.net.RequestOptions;
 import com.stripe.param.PaymentIntentCreateParams;
 import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,11 @@ import java.math.BigDecimal;
  * from here — it is now enforced once in the pay-invoice use case. On a Stripe
  * failure a {@link PaymentGatewayException} is thrown so the {@code @Retry} proxy
  * can retry and, if still failing, the use case can mark the invoice failed.
+ *
+ * <p>Every charge carries a Stripe idempotency key derived from the invoice id, so a retry
+ * (this adapter's {@code @Retry}, a client resubmit, or a relayed command) can never create a
+ * second PaymentIntent for the same invoice. This complements the pessimistic lock in the pay
+ * use case: the lock serializes attempts, the key makes any single attempt safe to repeat.
  */
 @Component
 public class StripePaymentAdapter implements PaymentPort {
@@ -41,7 +47,11 @@ public class StripePaymentAdapter implements PaymentPort {
                     )
                     .build();
 
-            PaymentIntent intent = PaymentIntent.create(params);
+            RequestOptions options = RequestOptions.builder()
+                    .setIdempotencyKey("invoice-pay-" + invoice.id().value())
+                    .build();
+
+            PaymentIntent intent = PaymentIntent.create(params, options);
 
             return new PaymentResult(intent.getStatus());
 
