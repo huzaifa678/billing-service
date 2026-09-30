@@ -2,30 +2,27 @@ package com.project.billing.application.invoice.port.out;
 
 import com.project.billing.domain.invoice.Invoice;
 import com.project.billing.domain.invoice.InvoiceId;
-import com.project.billing.domain.invoice.InvoiceStatus;
-import com.project.billing.domain.shared.CustomerId;
 import com.project.billing.domain.shared.SubscriptionId;
 
-import java.util.List;
 import java.util.Optional;
 
-/** Outbound port for persisting and loading {@link Invoice} aggregates. */
+/**
+ * Command-side (write) outbound port for {@link Invoice} aggregates, backed by the event store.
+ * Reads for the query side go through {@link InvoiceReadModelPort} instead; the loads here return
+ * event-sourced aggregates (with a version) because they feed load-mutate-save command flows.
+ */
 public interface InvoiceRepositoryPort {
 
+    /** Append the aggregate's pending events, project the read model, and snapshot as needed. */
     Invoice save(Invoice invoice);
 
-    Optional<Invoice> findById(InvoiceId id);
-
     /**
-     * Load an invoice under a pessimistic write lock held until the current
-     * transaction commits, so concurrent payment attempts on the same invoice are
-     * serialized. Must be called within a transaction.
+     * Load an invoice for a payment attempt under a pessimistic lock on its projection row (so
+     * concurrent pays on the same invoice are serialized), rebuilt from the event store.
+     * Must be called within a transaction.
      */
     Optional<Invoice> findByIdForUpdate(InvoiceId id);
 
+    /** Load the invoice for a subscription (subscription-driven activation/failure flows). */
     Optional<Invoice> findBySubscriptionId(SubscriptionId subscriptionId);
-
-    List<Invoice> findByCustomerId(CustomerId customerId);
-
-    List<Invoice> findByStatus(InvoiceStatus status);
 }

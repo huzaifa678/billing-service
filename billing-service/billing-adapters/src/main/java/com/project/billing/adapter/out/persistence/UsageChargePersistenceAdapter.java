@@ -1,23 +1,23 @@
 package com.project.billing.adapter.out.persistence;
 
-import com.project.billing.application.usage.port.out.UsageChargeRepositoryPort;
+import com.project.billing.application.usage.port.out.UsageChargeProjectionPort;
 import com.project.billing.domain.usage.UsageCharge;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * JPA-backed implementation of {@link UsageChargeRepositoryPort}. Usage charges
- * are only ever created (never reloaded), so identity is already assigned by the
- * aggregate and the input is returned unchanged after persisting.
+ * Read-model projection for the event-sourced usage-charge aggregate. The event-sourced repository
+ * calls {@link #project(UsageCharge)} in the same transaction as the event append to keep the
+ * {@code usage_charges} table consistent with the event store.
  */
 @Component
 @RequiredArgsConstructor
-public class UsageChargePersistenceAdapter implements UsageChargeRepositoryPort {
+public class UsageChargePersistenceAdapter implements UsageChargeProjectionPort {
 
     private final UsageChargeJpaRepository jpaRepository;
 
     @Override
-    public UsageCharge save(UsageCharge charge) {
+    public void project(UsageCharge charge) {
         jpaRepository.save(new UsageChargeJpaEntity(
                 charge.id().value(),
                 charge.invoiceId().value(),
@@ -25,8 +25,8 @@ public class UsageChargePersistenceAdapter implements UsageChargeRepositoryPort 
                 charge.quantity(),
                 charge.unitPrice().amount(),
                 charge.totalPrice().amount(),
-                charge.isNew()
+                // Create-only aggregate; not-new so Spring Data merges (idempotent upsert).
+                false
         ));
-        return charge;
     }
 }

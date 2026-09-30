@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "InvoiceCreated",
+  "namespace": "com.project.billing_service.avro",
+  "fields": [
+    { "name": "invoiceId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "subscriptionId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "customerId", "type": { "type": "string", "logicalType": "uuid" } },
+    {
+      "name": "amount",
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 19, "scale": 4 }
+    },
+    { "name": "currency", "type": "string" },
+    { "name": "status", "type": "string" },
+    { "name": "issuedAt", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "dueAt", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "occurredOn", "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

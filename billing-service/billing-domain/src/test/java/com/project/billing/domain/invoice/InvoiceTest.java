@@ -19,7 +19,8 @@ class InvoiceTest {
         assertEquals(InvoiceStatus.ISSUED, invoice.status());
         assertEquals(0, invoice.amount().amount().compareTo(new java.math.BigDecimal("29.99")));
         assertEquals("USD", invoice.amount().currency());
-        assertTrue(invoice.isNew());
+        // A freshly created invoice has applied exactly one event (Created).
+        assertEquals(1L, invoice.version());
         assertTrue(invoice.dueAt().isAfter(invoice.issuedAt()));
     }
 
