@@ -22,7 +22,9 @@ public class InvoicePersistenceMapper {
                 invoice.status().name(),
                 invoice.issuedAt(),
                 invoice.dueAt(),
-                invoice.isNew()
+                // Projection upsert: not-new so Spring Data merges (insert-or-update), keeping the
+                // read model in step regardless of whether the row already exists.
+                false
         );
     }
 
