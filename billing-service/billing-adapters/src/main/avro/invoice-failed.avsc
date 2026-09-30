@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "InvoiceFailed",
+  "namespace": "com.project.billing_service.avro",
+  "fields": [
+    { "name": "invoiceId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "occurredOn", "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}
