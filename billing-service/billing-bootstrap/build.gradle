@@ -25,6 +25,10 @@ dependencies {
     // OpenTelemetry (AppenderConfig)
     implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.31.1-alpha'
     implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
+    // The logback-appender (alpha) drags opentelemetry-api-incubator 1.65.0-alpha, but Spring
+    // Boot manages the OTel SDK at 1.62.0, so sdk-logs 1.62.0 can't find ExtendedAttributeKey
+    // (NoClassDefFoundError when logging an exception). Pin the incubator to the SDK's version.
+    implementation 'io.opentelemetry:opentelemetry-api-incubator:1.62.0-alpha'
 
     // OpenAPI (OpenApiConfig)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
