@@ -4,6 +4,7 @@ on:
   push:
     branches: [dev]
     paths: [billing-service/**]
+  workflow_dispatch:
 
 jobs:
   ci:
