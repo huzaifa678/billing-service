@@ -36,7 +36,7 @@ public class KafkaConsumerConfig {
         // auto-created DLT with fewer partitions than the source still accepts the record.
         return new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
-                (record, ex) -> new TopicPartition(record.topic() + ".DLT", -1)
+                (consumerRecord, ex) -> new TopicPartition(consumerRecord.topic() + ".DLT", -1)
         );
     }
 
@@ -46,12 +46,12 @@ public class KafkaConsumerConfig {
         backOff.setMaxAttempts(MAX_RETRIES);
 
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
-        errorHandler.setRetryListeners((record, ex, deliveryAttempt) ->
+        errorHandler.setRetryListeners((consumerRecord, ex, deliveryAttempt) ->
                 log.error(
                         "Kafka consume failed (attempt {}/{}) topic={} partition={} offset={}; "
                                 + "routing to {}.DLT once retries are exhausted",
-                        deliveryAttempt, MAX_RETRIES, record.topic(), record.partition(),
-                        record.offset(), record.topic(), ex
+                        deliveryAttempt, MAX_RETRIES, consumerRecord.topic(), consumerRecord.partition(),
+                        consumerRecord.offset(), consumerRecord.topic(), ex
                 ));
         return errorHandler;
     }

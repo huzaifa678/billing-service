@@ -94,7 +94,8 @@ public class InvoiceJpaEntity implements Persistable<UUID> {
     }
 
     public UUID getInvoiceId() {
-        return invoiceId;
+        // Delegates to the Persistable id so there is a single source of truth for identity.
+        return getId();
     }
 
     public UUID getSubscriptionId() {

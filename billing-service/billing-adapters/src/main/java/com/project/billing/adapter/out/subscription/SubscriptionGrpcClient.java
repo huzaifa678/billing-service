@@ -53,6 +53,7 @@ public class SubscriptionGrpcClient {
     }
 
     private GetUserActiveSubscriptionsResponse getUserActiveSubscriptionsFallback(String userId, Throwable ex) throws ServiceUnavailableException {
+        log.error("Subscription service call failed while fetching active subscriptions for user: {}", userId, ex);
         throw new ServiceUnavailableException(
                 "Subscription service unavailable while fetching active subscriptions for user " + userId
         );

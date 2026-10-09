@@ -22,5 +22,7 @@ class BillingServiceApplicationTests extends AbstractIntegrationTest {
 
     @Test
     void contextLoads() {
+        // Intentionally empty: the test passes if the Spring application context
+        // starts without error. Failure to wire any bean fails this test.
     }
 }

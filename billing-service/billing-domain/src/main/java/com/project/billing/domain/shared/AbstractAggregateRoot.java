@@ -13,10 +13,10 @@ import java.util.List;
  */
 public abstract class AbstractAggregateRoot {
 
-    private final transient List<DomainEvent> domainEvents = new ArrayList<>();
+    private final List<DomainEvent> domainEvents = new ArrayList<>();
 
     /** Number of events applied to this aggregate (0 for a brand-new instance). */
-    private transient long version;
+    private long version;
 
     protected void registerEvent(DomainEvent event) {
         this.domainEvents.add(event);

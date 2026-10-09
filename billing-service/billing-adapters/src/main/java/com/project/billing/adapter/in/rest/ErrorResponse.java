@@ -1,6 +1,7 @@
 package com.project.billing.adapter.in.rest;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 public class ErrorResponse {
 
@@ -11,7 +12,7 @@ public class ErrorResponse {
     public ErrorResponse(int status, String message) {
         this.status = status;
         this.message = message;
-        this.timestamp = LocalDateTime.now();
+        this.timestamp = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     public int getStatus() {

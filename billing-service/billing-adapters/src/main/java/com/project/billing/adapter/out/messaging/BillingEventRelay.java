@@ -71,15 +71,15 @@ public class BillingEventRelay {
                 DomainEvent event = serializer.deserialize(row.getEventType(), row.getPayload());
                 BillingEventAvroMapper.AvroMessage message = avroMapper.map(event);
 
-                ProducerRecord<String, Object> record =
+                ProducerRecord<String, Object> producerRecord =
                         new ProducerRecord<>(message.topic(), message.key(), message.value());
-                record.headers().add(new RecordHeader("eventType",
+                producerRecord.headers().add(new RecordHeader("eventType",
                         row.getEventType().getBytes(StandardCharsets.UTF_8)));
-                record.headers().add(new RecordHeader("eventId",
+                producerRecord.headers().add(new RecordHeader("eventId",
                         row.getEventId().toString().getBytes(StandardCharsets.UTF_8)));
 
                 // Block for the broker ack so a row is marked published only once it is on the bus.
-                kafkaTemplate.send(record).get();
+                kafkaTemplate.send(producerRecord).get();
                 published.add(row.getGlobalSeq());
             }
         } catch (InterruptedException e) {
