@@ -16,6 +16,8 @@ jobs:
 
     defaults:
       run:
+        # Gradle root is the billing-service/ subdirectory (gradlew, settings.gradle,
+        # build.gradle and all modules live there); the repo root has no wrapper.
         working-directory: billing-service
 
     steps:
@@ -27,16 +29,33 @@ jobs:
           distribution: temurin
           cache: gradle
 
+      - name: Install buf CLI
+        # compileJava depends on generateBufCode (billing-adapters), which runs
+        # `buf generate` with remote plugins, so buf must be on PATH in CI.
+        run: |
+          BUF_VERSION=1.68.4
+          mkdir -p "$HOME/.local/bin"
+          curl -sSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-$(uname -s)-$(uname -m)" \
+            -o "$HOME/.local/bin/buf"
+          chmod +x "$HOME/.local/bin/buf"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Install SonarScanner
         run: |
-          curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+          # Use the JRE-less CLI (not the -linux build): the -linux zip bundles its own
+          # Java 17 and forces it, which SonarCloud rejects. This variant runs on the
+          # JAVA_HOME that setup-java provides (JDK 21).
+          curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006.zip
           unzip sonar-scanner.zip
-          echo "$(pwd)/sonar-scanner-5.0.1.3006-linux/bin" >> $GITHUB_PATH
+          echo "$(pwd)/sonar-scanner-5.0.1.3006/bin" >> $GITHUB_PATH
 
       - name: Run tests
         run: ./gradlew test --no-daemon
         env:
           STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+          ORG_GRADLE_PROJECT_bufAuthHeaderName: Authorization
+          ORG_GRADLE_PROJECT_bufAuthHeaderValue: Bearer ${{ secrets.BUF_TOKEN }}
 
       - name: Run lint & Code quality check
         run: sonar-scanner
@@ -68,17 +87,21 @@ jobs:
           push: false
           load: true
           tags: ${{ steps.ecr.outputs.url }}:sha-${{ github.sha }}
-
-      - name: Install Trivy
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b "$HOME/.local/bin" v0.72.0
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # Buf token for the in-Dockerfile bootJar build (buf.build/gen/maven dependency
+          # + `buf generate` remote plugins). Consumed via --mount=type=secret,id=buf_token.
+          secrets: |
+            buf_token=${{ secrets.BUF_TOKEN }}
 
       - name: Trivy image scan (scan-before-push gate)
-        run: |
-          trivy image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 \
-            --format table "${{ steps.ecr.outputs.url }}:sha-${{ github.sha }}"
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ steps.ecr.outputs.url }}:sha-${{ github.sha }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
         env:
           TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db:1
