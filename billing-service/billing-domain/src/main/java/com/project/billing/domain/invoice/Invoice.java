@@ -8,6 +8,7 @@ import com.project.billing.domain.shared.Money;
 import com.project.billing.domain.shared.SubscriptionId;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -59,7 +60,7 @@ public class Invoice extends AbstractAggregateRoot {
      * (29.99 USD, issued immediately, due in 7 days).
      */
     public static Invoice issueInitial(SubscriptionId subscriptionId, CustomerId customerId) {
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         return create(subscriptionId, customerId, INITIAL_AMOUNT, InvoiceStatus.ISSUED, now, now.plusDays(DEFAULT_DUE_DAYS));
     }
 
@@ -76,27 +77,34 @@ public class Invoice extends AbstractAggregateRoot {
             OffsetDateTime issuedAt,
             OffsetDateTime dueAt
     ) {
-        return fromSnapshot(id, subscriptionId, customerId, amount, status, issuedAt, dueAt, 0L);
+        return fromSnapshot(
+                new Snapshot(id, subscriptionId, customerId, amount, status, issuedAt, dueAt), 0L);
     }
 
-    /** Rebuild an invoice from a stored snapshot at a known {@code version}. */
-    public static Invoice fromSnapshot(
+    /**
+     * Immutable carrier for the invoice state captured in a snapshot, passed as a single
+     * argument so {@link #fromSnapshot} does not take an unwieldy parameter list.
+     */
+    public record Snapshot(
             InvoiceId id,
             SubscriptionId subscriptionId,
             CustomerId customerId,
             Money amount,
             InvoiceStatus status,
             OffsetDateTime issuedAt,
-            OffsetDateTime dueAt,
-            long version
-    ) {
-        Invoice invoice = new Invoice(id);
-        invoice.subscriptionId = Objects.requireNonNull(subscriptionId, "subscriptionId");
-        invoice.customerId = Objects.requireNonNull(customerId, "customerId");
-        invoice.amount = Objects.requireNonNull(amount, "amount");
-        invoice.status = Objects.requireNonNull(status, "status");
-        invoice.issuedAt = Objects.requireNonNull(issuedAt, "issuedAt");
-        invoice.dueAt = Objects.requireNonNull(dueAt, "dueAt");
+            OffsetDateTime dueAt
+    ) {}
+
+    /** Rebuild an invoice from a stored snapshot at a known {@code version}. */
+    public static Invoice fromSnapshot(Snapshot snapshot, long version) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        Invoice invoice = new Invoice(snapshot.id());
+        invoice.subscriptionId = Objects.requireNonNull(snapshot.subscriptionId(), "subscriptionId");
+        invoice.customerId = Objects.requireNonNull(snapshot.customerId(), "customerId");
+        invoice.amount = Objects.requireNonNull(snapshot.amount(), "amount");
+        invoice.status = Objects.requireNonNull(snapshot.status(), "status");
+        invoice.issuedAt = Objects.requireNonNull(snapshot.issuedAt(), "issuedAt");
+        invoice.dueAt = Objects.requireNonNull(snapshot.dueAt(), "dueAt");
         invoice.restoreVersion(version);
         return invoice;
     }

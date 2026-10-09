@@ -49,13 +49,15 @@ public class InvoiceSnapshotStoreAdapter implements InvoiceSnapshotStorePort {
     private Invoice toDomain(InvoiceSnapshotEntity entity) {
         SnapshotState s = read(entity.getState());
         return Invoice.fromSnapshot(
-                InvoiceId.of(s.invoiceId()),
-                SubscriptionId.of(s.subscriptionId()),
-                CustomerId.of(s.customerId()),
-                s.amount(),
-                InvoiceStatus.valueOf(s.status()),
-                s.issuedAt(),
-                s.dueAt(),
+                new Invoice.Snapshot(
+                        InvoiceId.of(s.invoiceId()),
+                        SubscriptionId.of(s.subscriptionId()),
+                        CustomerId.of(s.customerId()),
+                        s.amount(),
+                        InvoiceStatus.valueOf(s.status()),
+                        s.issuedAt(),
+                        s.dueAt()
+                ),
                 entity.getVersion()
         );
     }
