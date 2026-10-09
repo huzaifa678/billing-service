@@ -174,7 +174,7 @@ public class InvoiceCommandService implements
     private void recordUsageCharge(Invoice invoice) {
         Money unitPrice = invoice.amount().divide(USAGE_QUANTITY);
 
-        recordUsageChargeUseCase.record(new RecordUsageChargeCommand(
+        recordUsageChargeUseCase.recordCharge(new RecordUsageChargeCommand(
                 invoice.id(),
                 USAGE_METRIC_API_CALLS,
                 USAGE_QUANTITY,

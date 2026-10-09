@@ -36,7 +36,7 @@ class UsageChargeCommandServiceTest {
         InvoiceId invoiceId = InvoiceId.of(UUID.randomUUID());
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        UsageCharge result = service.record(new RecordUsageChargeCommand(
+        UsageCharge result = service.recordCharge(new RecordUsageChargeCommand(
                 invoiceId, Metric.of("api_calls"), 2L, Money.of("10", "USD")
         ));
 

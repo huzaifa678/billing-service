@@ -107,7 +107,7 @@ class InvoiceCommandServiceTest {
         assertEquals("succeeded", status);
         verify(rateLimiter).checkPayInvoice(InvoiceId.of(invoiceId));
         verify(invoiceRepository).save(argThat(saved -> saved.status() == InvoiceStatus.PAID));
-        verify(recordUsageChargeUseCase).record(argThat((RecordUsageChargeCommand c) ->
+        verify(recordUsageChargeUseCase).recordCharge(argThat((RecordUsageChargeCommand c) ->
                 c.invoiceId().equals(InvoiceId.of(invoiceId))
                         && c.metric().value().equals("api_calls")
                         && c.quantity() == 1L
@@ -127,7 +127,7 @@ class InvoiceCommandServiceTest {
 
         verify(rateLimiter).checkPayInvoice(InvoiceId.of(invoiceId));
         verify(invoiceRepository).save(argThat(saved -> saved.status() == InvoiceStatus.FAILED));
-        verify(recordUsageChargeUseCase, never()).record(any());
+        verify(recordUsageChargeUseCase, never()).recordCharge(any());
     }
 
     private static Invoice existingInvoice(UUID invoiceId, String amount) {

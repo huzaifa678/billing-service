@@ -21,7 +21,7 @@ public class UsageChargeCommandService implements RecordUsageChargeUseCase {
 
     @Override
     @Transactional
-    public UsageCharge record(RecordUsageChargeCommand command) {
+    public UsageCharge recordCharge(RecordUsageChargeCommand command) {
         UsageCharge charge = UsageCharge.create(
                 command.invoiceId(),
                 command.metric(),
