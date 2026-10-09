@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:21-jdk@sha256:3e3c176ffed168beb42c607be9bc1639b466cf00261a0fb04425562c9d0c5c2b AS build
 WORKDIR /app
 
 # buf CLI is required to generate the subscription gRPC stubs (see billing-adapters).
@@ -24,9 +24,16 @@ COPY billing-application/src billing-application/src
 COPY billing-adapters/src billing-adapters/src
 COPY billing-bootstrap/src billing-bootstrap/src
 
-RUN ./gradlew :billing-bootstrap:bootJar --no-daemon -x test
+# The bootJar build resolves the build.buf.gen:* dependency from buf.build/gen/maven
+# (HTTP header auth) and runs `buf generate` against remote plugins, both of which need
+# the BSR token. It is mounted as a BuildKit secret so it never lands in an image layer.
+RUN --mount=type=secret,id=buf_token \
+    export BUF_TOKEN="$(cat /run/secrets/buf_token)" \
+    && export ORG_GRADLE_PROJECT_bufAuthHeaderName=Authorization \
+    && export ORG_GRADLE_PROJECT_bufAuthHeaderValue="Bearer ${BUF_TOKEN}" \
+    && ./gradlew :billing-bootstrap:bootJar --no-daemon -x test
 
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555 AS runtime
 WORKDIR /app
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
