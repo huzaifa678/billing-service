@@ -78,7 +78,7 @@ subprojects {
 
         constraints {
             implementation("at.yawk.lz4:lz4-java:1.11.4")
-            implementation("org.bouncycastle:bcprov-jdk18on:1.85")
+            implementation("org.bouncycastle:bcprov-jdk18on:1.86")
         }
     }
 
