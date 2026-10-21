@@ -36,6 +36,11 @@ RUN --mount=type=secret,id=buf_token \
 FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555 AS runtime
 WORKDIR /app
 
+# Patch OS packages carried by the base image: CVE-2026-77214 (HIGH) in expat is
+# fixed in 2.9.0-r0. The installed package is `libexpat` (not `expat`), so name it
+# exactly or the upgrade is a silent no-op. Base digest is pinned, so this is the knob.
+RUN apk upgrade --no-cache libexpat
+
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=build /app/billing-bootstrap/build/libs/*.jar app.jar
