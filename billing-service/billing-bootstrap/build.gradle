@@ -29,7 +29,7 @@ dependencies {
     // Boot manages the OTel SDK at 1.62.0, so sdk-logs 1.62.0 can't find ExtendedAttributeKey
     // (NoClassDefFoundError when logging an exception). Pin the incubator to the SDK's version
     // and keep it in lockstep — do NOT let dependabot bump it past the managed SDK.
-    implementation 'io.opentelemetry:opentelemetry-api-incubator:1.62.0-alpha'
+    implementation 'io.opentelemetry:opentelemetry-api-incubator:1.67.0-alpha'
 
     // OpenAPI (OpenApiConfig)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
