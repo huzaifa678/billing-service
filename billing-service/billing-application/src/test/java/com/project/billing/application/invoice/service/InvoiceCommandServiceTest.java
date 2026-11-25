@@ -72,7 +72,7 @@ class InvoiceCommandServiceTest {
 
         CreateInvoiceCommand command = new CreateInvoiceCommand(
                 subId, UUID.randomUUID(), new BigDecimal("100.00"), "USD",
-                "ISSUED", OffsetDateTime.now(), OffsetDateTime.now().plusDays(7)
+                "ISSUED", OffsetDateTime.now(), OffsetDateTime.now().plusDays(7), null
         );
 
         Invoice result = service.create(command);
@@ -88,7 +88,7 @@ class InvoiceCommandServiceTest {
 
         CreateInvoiceCommand command = new CreateInvoiceCommand(
                 UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("10.00"), "USD",
-                "ISSUED", OffsetDateTime.now(), OffsetDateTime.now().plusDays(7)
+                "ISSUED", OffsetDateTime.now(), OffsetDateTime.now().plusDays(7), null
         );
 
         assertThrows(InvalidSubscriptionStateException.class, () -> service.create(command));

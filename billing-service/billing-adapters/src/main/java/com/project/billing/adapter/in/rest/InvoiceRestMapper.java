@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class InvoiceRestMapper {
 
-    public CreateInvoiceCommand toCommand(InvoiceRequest request) {
+    public CreateInvoiceCommand toCommand(InvoiceRequest request, String idempotencyKey) {
         return new CreateInvoiceCommand(
                 request.subscriptionId(),
                 request.customerId(),
@@ -20,7 +20,8 @@ public class InvoiceRestMapper {
                 request.currency(),
                 request.status(),
                 request.issuedAt(),
-                request.dueAt()
+                request.dueAt(),
+                idempotencyKey
         );
     }
 

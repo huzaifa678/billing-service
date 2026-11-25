@@ -49,7 +49,23 @@ public class Invoice extends AbstractAggregateRoot {
             OffsetDateTime issuedAt,
             OffsetDateTime dueAt
     ) {
-        InvoiceId id = InvoiceId.of(UUID.randomUUID());
+        return create(InvoiceId.of(UUID.randomUUID()), subscriptionId, customerId, amount, status, issuedAt, dueAt);
+    }
+
+    /**
+     * Create an invoice with a caller-supplied id. Used for idempotent creation: a deterministic id
+     * derived from an Idempotency-Key makes a retry collide on the event store's uniqueness instead
+     * of raising a duplicate invoice.
+     */
+    public static Invoice create(
+            InvoiceId id,
+            SubscriptionId subscriptionId,
+            CustomerId customerId,
+            Money amount,
+            InvoiceStatus status,
+            OffsetDateTime issuedAt,
+            OffsetDateTime dueAt
+    ) {
         Invoice invoice = new Invoice(id);
         invoice.applyChange(InvoiceEvent.Created.of(id, subscriptionId, customerId, amount, status, issuedAt, dueAt));
         return invoice;
