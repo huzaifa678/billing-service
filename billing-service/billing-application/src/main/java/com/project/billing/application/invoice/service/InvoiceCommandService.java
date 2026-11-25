@@ -27,8 +27,13 @@ import com.project.billing.domain.shared.SubscriptionId;
 import com.project.billing.domain.subscription.SubscriptionSnapshot;
 import com.project.billing.domain.usage.Metric;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Command side for invoices. Orchestrates the aggregate lifecycle (create, pay,
@@ -58,6 +63,7 @@ public class InvoiceCommandService implements
     private final RecordUsageChargeUseCase recordUsageChargeUseCase;
 
     @Override
+    @Transactional
     public Invoice create(CreateInvoiceCommand command) {
         SubscriptionSnapshot subscription =
                 subscriptionGateway.getSubscription(SubscriptionId.of(command.subscriptionId()));
@@ -68,16 +74,41 @@ public class InvoiceCommandService implements
             );
         }
 
-        Invoice invoice = Invoice.create(
-                SubscriptionId.of(command.subscriptionId()),
-                CustomerId.of(command.customerId()),
-                Money.of(command.amount(), command.currency()),
-                parseStatus(command.status()),
-                command.issuedAt(),
-                command.dueAt()
-        );
+        Optional<InvoiceId> idempotentId = idFor(command.idempotencyKey());
 
-        return invoiceRepository.save(invoice);
+        // Replay: a retry carrying the same Idempotency-Key maps to the same invoice id, so an
+        // already-created invoice is returned instead of raising a second one.
+        if (idempotentId.isPresent()) {
+            Optional<Invoice> existing = invoiceRepository.findByIdForUpdate(idempotentId.get());
+            if (existing.isPresent()) {
+                return existing.get();
+            }
+        }
+
+        Invoice invoice = idempotentId
+                .map(id -> Invoice.create(
+                        id,
+                        SubscriptionId.of(command.subscriptionId()),
+                        CustomerId.of(command.customerId()),
+                        Money.of(command.amount(), command.currency()),
+                        parseStatus(command.status()),
+                        command.issuedAt(),
+                        command.dueAt()))
+                .orElseGet(() -> Invoice.create(
+                        SubscriptionId.of(command.subscriptionId()),
+                        CustomerId.of(command.customerId()),
+                        Money.of(command.amount(), command.currency()),
+                        parseStatus(command.status()),
+                        command.issuedAt(),
+                        command.dueAt()));
+
+        try {
+            return invoiceRepository.save(invoice);
+        } catch (OptimisticLockingFailureException concurrentRetry) {
+            // A concurrent retry created it first; return that one.
+            return invoiceRepository.findByIdForUpdate(invoice.id())
+                    .orElseThrow(() -> concurrentRetry);
+        }
     }
 
     @Override
@@ -187,6 +218,15 @@ public class InvoiceCommandService implements
                 .orElseThrow(() -> new InvoiceNotFoundException(
                         "Invoice not found with id: " + invoiceId
                 ));
+    }
+
+    /** Maps a present, non-blank Idempotency-Key to a stable invoice id, so a retry resolves to it. */
+    private static Optional<InvoiceId> idFor(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(InvoiceId.of(
+                UUID.nameUUIDFromBytes(("invoice:" + idempotencyKey).getBytes(StandardCharsets.UTF_8))));
     }
 
     private InvoiceStatus parseStatus(String status) {
